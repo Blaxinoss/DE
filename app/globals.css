@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+:root { --ink: #172033; --muted: #687085; --paper: #f6f8fc; --line: #dfe4ee; --blue: #2757d6; --lime: #c9f46a; }
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body { margin: 0; color: var(--ink); background: radial-gradient(circle at 88% 0%, rgba(39,87,214,.09), transparent 28rem), var(--paper); font-family: Arial, Helvetica, sans-serif; min-height: 100vh; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .52; }
+::selection { background: var(--lime); color: var(--ink); }
+
+@layer components {
+  .surface { @apply rounded-[1.4rem] border border-[#dfe4ee] bg-white shadow-[0_12px_35px_rgba(23,32,51,0.05)]; }
+  .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#2757d6] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1f47b2] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9eb6ff]; }
+  .btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#dfe4ee] bg-white px-4 py-2.5 text-sm font-bold text-[#172033] transition hover:border-[#bcc7dc] hover:bg-[#f9faff] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9eb6ff]; }
+  .field { @apply min-h-11 w-full rounded-xl border border-[#d7deeb] bg-white px-3.5 py-2.5 text-base text-[#172033] outline-none transition placeholder:text-[#9aa2b2] focus:border-[#2757d6] focus:ring-3 focus:ring-[#2757d6]/10; }
+  .label { @apply mb-1.5 block text-sm font-bold text-[#3d465c]; }
+  .eyebrow { @apply text-xs font-extrabold uppercase tracking-[.16em] text-[#2757d6]; }
+}
+@media (max-width: 767px) { body { padding-bottom: 5.5rem; } }
