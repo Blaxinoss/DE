@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -162,6 +162,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_daily_usage: {
+        Row: {
+          action: string
+          request_count: number
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          request_count?: number
+          usage_date?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          request_count?: number
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       global_lexicon: {
         Row: {
@@ -332,6 +353,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_ai_quota: { Args: { p_action: string }; Returns: boolean }
       record_learning_result:
         | {
             Args: {

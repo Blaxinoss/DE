@@ -2,18 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Pencil, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
-import { GrammarDetails } from "@/components/grammar-details";
+import { GrammarDetails } from "@/features/vocabulary/components/grammar-details";
 import { EmptyState, LoadingState, PageHeader, StateBadge } from "@/components/ui";
-import { VocabularyForm } from "@/components/vocabulary-form";
-import { useVocabulary } from "@/components/vocabulary-provider";
-import { languageDetails } from "@/lib/languages";
+import { VocabularyForm } from "@/features/vocabulary/components/vocabulary-form";
+import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
+import { languageDetails } from "@/features/learning/language-config";
 import {
   LearningLanguage,
   Target,
   Vocabulary,
   VocabularyState,
   vocabularyStates,
-} from "@/lib/types";
+} from "@/features/learning/types";
 
 function grammarString(word: Vocabulary, key: string): string | null {
   const value = word.grammar[key];

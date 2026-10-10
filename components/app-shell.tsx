@@ -12,10 +12,10 @@ import {
   LogOut,
   Repeat2,
 } from "lucide-react";
-import { signOut } from "@/app/auth/actions";
-import { languageDetails } from "@/lib/languages";
-import { LearningLanguage } from "@/lib/types";
-import { useVocabulary } from "./vocabulary-provider";
+import { signOut } from "@/features/auth/actions";
+import { languageDetails } from "@/features/learning/language-config";
+import { LearningLanguage } from "@/features/learning/types";
+import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
 
 const nav = [
   { href: "/dashboard", label: "Today", icon: LayoutDashboard },

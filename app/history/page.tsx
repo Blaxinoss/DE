@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ActivationHistoryList } from "@/components/activation-history-list";
+import { ActivationHistoryList } from "@/features/activation/components/activation-history-list";
 import { EmptyState, PageHeader } from "@/components/ui";
 import {
   ACTIVATION_HISTORY_PAGE_SIZE,
   getActivationHistory,
-} from "@/lib/activation-history";
-import type { LearningLanguage } from "@/lib/types";
-import { createClient } from "@/lib/supabase/server";
+} from "@/features/activation/history-query";
+import type { LearningLanguage } from "@/features/learning/types";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export default async function HistoryPage({
   searchParams,
@@ -16,7 +16,7 @@ export default async function HistoryPage({
 }) {
   const requestedPage = Number.parseInt((await searchParams).page ?? "1", 10);
   const page = Number.isFinite(requestedPage) ? Math.max(requestedPage, 1) : 1;
-  const client = await createClient();
+  const client = await createServerSupabaseClient();
   const {
     data: { user },
   } = await client.auth.getUser();

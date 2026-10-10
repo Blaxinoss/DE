@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { Activity, ArrowRight, BookPlus, Clock3, Repeat2 } from "lucide-react";
 import { LoadingState, PageHeader, StateBadge } from "@/components/ui";
-import { useVocabulary } from "@/components/vocabulary-provider";
-import { languageDetails } from "@/lib/languages";
-import { isActivationReady, isReviewReady, progressPercent } from "@/lib/learning";
-import { vocabularyStates } from "@/lib/types";
-import { useCurrentTime } from "@/components/use-current-time";
+import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
+import { languageDetails } from "@/features/learning/language-config";
+import {
+  isActivationReady,
+  isReviewReady,
+  progressPercent,
+} from "@/features/learning/rules";
+import { vocabularyStates } from "@/features/learning/types";
+import { useCurrentTime } from "@/hooks/use-current-time";
 
 export default function Dashboard() {
   const { language, words, loading, error } = useVocabulary();

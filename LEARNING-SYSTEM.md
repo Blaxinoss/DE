@@ -127,7 +127,7 @@ new      -> new
 
 ## 6. مواعيد المراجعة
 
-الفترات الأساسية موجودة في `lib/learning.ts`:
+الفترات الأساسية موجودة في `features/learning/rules.ts`:
 
 | الحالة     |     المدة الأساسية |
 | ---------- | -----------------: |
@@ -278,11 +278,11 @@ active                  -> active
 
 ## 13. أماكن القواعد في الكود
 
-- الأنواع: [`lib/types.ts`](lib/types.ts)
-- النقل والمواعيد والاستحقاق: [`lib/learning.ts`](lib/learning.ts)
-- اختبارات القواعد: [`lib/learning.test.ts`](lib/learning.test.ts)
-- تنظيم الحفظ وتحديث React: [`components/vocabulary-provider.tsx`](components/vocabulary-provider.tsx)
-- الحفظ الذري في Supabase: [`lib/repository.ts`](lib/repository.ts)
+- الأنواع: [`features/learning/types.ts`](features/learning/types.ts)
+- النقل والمواعيد والاستحقاق: [`features/learning/rules.ts`](features/learning/rules.ts)
+- اختبارات القواعد: [`features/learning/rules.test.ts`](features/learning/rules.test.ts)
+- تنظيم الحفظ وتحديث React: [`features/vocabulary/components/vocabulary-provider.tsx`](features/vocabulary/components/vocabulary-provider.tsx)
+- الحفظ الذري في Supabase: [`features/vocabulary/vocabulary-repository.ts`](features/vocabulary/vocabulary-repository.ts)
 - Review: [`app/review/page.tsx`](app/review/page.tsx)
 - Activate: [`app/activate/page.tsx`](app/activate/page.tsx)
 - Dashboard: [`app/dashboard/page.tsx`](app/dashboard/page.tsx)

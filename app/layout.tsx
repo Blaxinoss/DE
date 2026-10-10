@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
-import { VocabularyProvider } from "@/components/vocabulary-provider";
-import { WebMcpTools } from "@/components/webmcp-tools";
+import { VocabularyProvider } from "@/features/vocabulary/components/vocabulary-provider";
+import { WebMcpTools } from "@/features/vocabulary/components/webmcp-tools";
 import { WebVitals } from "@/components/web-vitals";
 export const metadata: Metadata = {
   title: { default: "Wortweg", template: "%s · Wortweg" },

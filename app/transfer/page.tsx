@@ -3,10 +3,10 @@
 import { ChangeEvent, useState } from "react";
 import { Download, FileJson, Upload } from "lucide-react";
 import { PageHeader } from "@/components/ui";
-import { useVocabulary } from "@/components/vocabulary-provider";
-import { buildExport, parseImport } from "@/lib/import-export";
-import { languageDetails } from "@/lib/languages";
-import { LearningLanguage } from "@/lib/types";
+import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
+import { buildExport, parseImport } from "@/features/vocabulary/import-export";
+import { languageDetails } from "@/features/learning/language-config";
+import { LearningLanguage } from "@/features/learning/types";
 
 const samples: Record<LearningLanguage, string> = {
   de: `{

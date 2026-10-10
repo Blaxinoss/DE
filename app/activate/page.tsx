@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ActivationFeedback } from "@/components/activation-feedback";
-import { useVocabulary } from "@/components/vocabulary-provider";
+import { ActivationFeedback } from "@/features/activation/components/activation-feedback";
+import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
 import { EmptyState, LoadingState, PageHeader, StateBadge } from "@/components/ui";
 import {
   ACTIVATION_EXERCISES_PER_REQUEST,
@@ -11,11 +11,11 @@ import {
   ActivationResponse,
   ActivationSubmission,
   activationResponseSchema,
-} from "@/lib/ai/activation-schema";
-import { languageDetails } from "@/lib/languages";
-import { isActivationReady } from "@/lib/learning";
-import { useCurrentTime } from "@/components/use-current-time";
-import { evaluateActivationAction } from "./actions";
+} from "@/features/activation/schema";
+import { languageDetails } from "@/features/learning/language-config";
+import { isActivationReady } from "@/features/learning/rules";
+import { useCurrentTime } from "@/hooks/use-current-time";
+import { submitActivation } from "@/features/activation/submit-activation";
 
 export default function ActivatePage() {
   const { language, words, loading, applyLearningResults } = useVocabulary();
@@ -63,7 +63,7 @@ export default function ActivatePage() {
     setWarning(null);
 
     try {
-      const actionResult = await evaluateActivationAction({ attempts });
+      const actionResult = await submitActivation({ attempts });
       if (!actionResult.ok) throw new Error(actionResult.error);
 
       const result = activationResponseSchema.parse(actionResult.evaluation);

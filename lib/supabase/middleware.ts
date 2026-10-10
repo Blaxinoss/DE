@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "../database.types";
 import { getSupabaseConfig } from "./config";
 
-const publicPaths = new Set(["/", "/signup"]);
+const publicPaths = new Set(["/", "/signup", "/forgot-password"]);
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

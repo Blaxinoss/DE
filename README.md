@@ -101,7 +101,7 @@ exercise type:
   `recall` to `learning`; words do not demote from `learning` back to `new`.
 
 The scheduling and state-transition rules live in
-[`lib/learning.ts`](lib/learning.ts).
+[`features/learning/rules.ts`](features/learning/rules.ts).
 
 ## Review and activation
 
@@ -150,10 +150,10 @@ once.
 Relevant files:
 
 - [`app/activate/page.tsx`](app/activate/page.tsx)
-- [`app/activate/actions.ts`](app/activate/actions.ts)
-- [`lib/ai/activation-schema.ts`](lib/ai/activation-schema.ts)
-- [`lib/ai/evaluate-activation.ts`](lib/ai/evaluate-activation.ts)
-- [`lib/ai/activation-result.ts`](lib/ai/activation-result.ts)
+- [`features/activation/submit-activation.ts`](features/activation/submit-activation.ts)
+- [`features/activation/schema.ts`](features/activation/schema.ts)
+- [`features/activation/gemini-evaluator.ts`](features/activation/gemini-evaluator.ts)
+- [`features/activation/map-result.ts`](features/activation/map-result.ts)
 
 ## Architecture
 
@@ -306,6 +306,7 @@ Set these values:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 SUPABASE_SECRET_KEY=your-server-only-secret-key
 GEMINI_API_KEY=your-server-only-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite
@@ -315,6 +316,7 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 | -------------------------------------- | ------------ | ------------------------------------------------------------ |
 | `NEXT_PUBLIC_SUPABASE_URL`             | Browser-safe | Supabase project URL                                         |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser-safe | Supabase publishable/anon key; RLS still controls access     |
+| `NEXT_PUBLIC_SITE_URL`                 | Browser-safe | Canonical app origin used by password-reset email redirects  |
 | `SUPABASE_SECRET_KEY`                  | Server only  | Writes validated AI entries to the read-only shared lexicon  |
 | `GEMINI_API_KEY`                       | Server only  | Activation evaluation and missing lexical-entry generation   |
 | `GEMINI_MODEL`                         | Server only  | Optional model override; defaults to `gemini-3.5-flash-lite` |
@@ -356,6 +358,10 @@ http://localhost:3000/auth/confirm
 https://your-domain.example
 https://your-domain.example/auth/confirm
 ```
+
+Set `NEXT_PUBLIC_SITE_URL` to the matching origin in each environment. Password
+recovery sends users through `/auth/confirm?next=/reset-password`; the callback
+accepts only that known internal destination and falls back to `/dashboard`.
 
 If email confirmation is enabled, signup shows a confirmation message. The
 callback route accepts either a PKCE `code` or Supabase `token_hash` and then
@@ -450,7 +456,8 @@ language and export timestamp.
 
 ## Language support
 
-Language behavior is centralized in [`lib/languages.ts`](lib/languages.ts):
+Language behavior is centralized in
+[`features/learning/language-config.ts`](features/learning/language-config.ts):
 
 - display and native names;
 - locale used for normalization;
@@ -464,8 +471,10 @@ intentionally unchanged.
 
 To add another target language:
 
-1. Add its code to `learningLanguages` in [`lib/types.ts`](lib/types.ts).
-2. Add its configuration in [`lib/languages.ts`](lib/languages.ts).
+1. Add its code to `learningLanguages` in
+   [`features/learning/types.ts`](features/learning/types.ts).
+2. Add its configuration in
+   [`features/learning/language-config.ts`](features/learning/language-config.ts).
 3. Add the code to the database check constraints through a new migration.
 4. Update the language-switcher UI if more than two choices are available.
 5. Add import examples and test review/activation behavior for that language.
@@ -476,12 +485,13 @@ store forms, phrasal patterns, or usage notes without changing the schema.
 
 ## Authentication and session flow
 
-- Login and signup use Next.js Server Actions.
+- Login, signup, and password recovery use Next.js Server Actions.
 - Browser access uses `createBrowserClient` from `@supabase/ssr`.
 - Server Actions and route handlers use the cookie-aware server client.
 - Middleware refreshes the Supabase session on navigation.
 - Unauthenticated users are redirected to `/`.
-- Authenticated users visiting `/` or `/signup` are redirected to `/dashboard`.
+- Authenticated users visiting `/`, `/signup`, or `/forgot-password` are
+  redirected to `/dashboard`.
 - RLS is the final authorization boundary; UI filtering is not treated as
   security.
 
@@ -515,35 +525,26 @@ authentication and RLS.
 ## Project structure
 
 ```text
-app/
-├── activate/              # AI production practice and Server Action
-├── auth/                  # Auth actions and confirmation callback
-├── dashboard/             # Recommended next action and progress
-├── review/                # Spaced retrieval flow
-├── transfer/              # JSON import/export
-└── vocabulary/            # Vocabulary bank and editor
-
-components/
-├── activation-feedback.tsx
-├── app-shell.tsx
-├── auth-form.tsx
-├── vocabulary-form.tsx
-└── vocabulary-provider.tsx
-
+app/                         # Next.js routes and route composition only
+components/                  # UI shared by multiple features
+hooks/                       # React hooks shared by multiple features
+features/
+  activation/               # Activation UI, validation, AI evaluation, persistence
+  auth/                     # Auth actions, validation, and forms
+  learning/                 # Learning types, language config, and scheduling rules
+  vocabulary/               # Vocabulary UI, dictionary generation, and persistence
 lib/
-├── ai/                    # Gemini client, schemas, prompt, validation
-├── supabase/              # Browser/server/middleware clients
-├── database.types.ts      # Supabase TypeScript database types
-├── import-export.ts
-├── languages.ts
-├── learning.ts
-├── repository.ts
-└── types.ts
+  ai/                       # Shared Gemini client, JSON-schema helpers, and quota
+  supabase/                 # Browser, server, admin, and middleware clients
+  database.types.ts         # Generated Supabase types
 
 supabase/
-├── migrations/
-└── schema.sql
+  migrations/               # Ordered database changes
+  schema.sql                # Current complete database definition
 ```
+
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for ownership rules and the shortest
+trace from each page to Supabase or Gemini.
 
 ## Security notes
 

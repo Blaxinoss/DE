@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.ai_daily_usage (
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  usage_date DATE NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC')::DATE,
+  action TEXT NOT NULL CHECK (action IN ('generate_word', 'activate')),
+  request_count INTEGER NOT NULL DEFAULT 0 CHECK (request_count >= 0),
+  PRIMARY KEY (user_id, usage_date, action)
+);
+
 CREATE TABLE IF NOT EXISTS public.activation_attempts (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -164,6 +172,46 @@ CREATE TRIGGER global_lexicon_set_updated_at
   BEFORE UPDATE ON public.global_lexicon
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.consume_ai_quota(
+  p_action TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  current_user_id UUID := (SELECT auth.uid());
+  action_limit INTEGER := 10;
+  affected_rows INTEGER;
+BEGIN
+  IF current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  INSERT INTO public.ai_daily_usage (
+    user_id,
+    usage_date,
+    action,
+    request_count
+  )
+  VALUES (
+    current_user_id,
+    (NOW() AT TIME ZONE 'UTC')::DATE,
+    p_action,
+    1
+  )
+  ON CONFLICT (user_id, usage_date, action)
+  DO UPDATE
+  SET request_count = ai_daily_usage.request_count + 1
+  WHERE ai_daily_usage.request_count < action_limit;
+
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+
+  RETURN affected_rows = 1;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.record_learning_result(
   p_vocabulary_id UUID,
@@ -560,6 +608,8 @@ ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public.ai_daily_usage ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.global_lexicon ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.activation_attempts ENABLE ROW LEVEL SECURITY;
@@ -611,6 +661,7 @@ DROP POLICY IF EXISTS "activation_word_results_insert" ON public.activation_word
 REVOKE ALL ON public.vocabulary,
 public.reviews,
 public.user_preferences,
+public.ai_daily_usage,
 public.global_lexicon,
 public.activation_attempts,
 public.activation_word_results
@@ -627,6 +678,8 @@ GRANT SELECT, INSERT ON public.reviews TO authenticated;
 
 GRANT SELECT, INSERT, UPDATE ON public.user_preferences TO authenticated;
 
+REVOKE ALL ON public.ai_daily_usage FROM anon, authenticated;
+
 GRANT SELECT ON public.global_lexicon TO authenticated;
 
 GRANT SELECT, INSERT ON public.activation_attempts TO authenticated;
@@ -634,6 +687,10 @@ GRANT SELECT, INSERT ON public.activation_attempts TO authenticated;
 GRANT SELECT, INSERT ON public.activation_word_results TO authenticated;
 
 REVOKE ALL ON FUNCTION public.record_learning_result(UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) FROM PUBLIC;
+
+REVOKE ALL ON FUNCTION public.consume_ai_quota(TEXT) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.consume_ai_quota(TEXT) TO authenticated;
 
 GRANT EXECUTE ON FUNCTION public.record_learning_result(UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) TO authenticated;
 

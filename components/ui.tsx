@@ -1,4 +1,4 @@
-import { VocabularyState } from "@/lib/types";
+import { VocabularyState } from "@/features/learning/types";
 
 const stateNames: Record<VocabularyState, string> = {
   new: "New",

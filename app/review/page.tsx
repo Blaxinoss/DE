@@ -2,13 +2,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, RotateCcw } from "lucide-react";
-import { isReviewReady, nearestReviewDelay } from "@/lib/learning";
-import { ReviewResult } from "@/lib/types";
-import { useVocabulary } from "@/components/vocabulary-provider";
+import { isReviewReady, nearestReviewDelay } from "@/features/learning/rules";
+import { ReviewResult } from "@/features/learning/types";
+import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
 import { EmptyState, LoadingState, PageHeader, StateBadge } from "@/components/ui";
-import { GrammarDetails } from "@/components/grammar-details";
-import { languageDetails } from "@/lib/languages";
-import { useCurrentTime } from "@/components/use-current-time";
+import { GrammarDetails } from "@/features/vocabulary/components/grammar-details";
+import { languageDetails } from "@/features/learning/language-config";
+import { useCurrentTime } from "@/hooks/use-current-time";
 
 const options: {
   result: ReviewResult;
