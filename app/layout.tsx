@@ -3,13 +3,25 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { VocabularyProvider } from "@/components/vocabulary-provider";
 import { WebMcpTools } from "@/components/webmcp-tools";
-
+import { WebVitals } from "@/components/web-vitals";
 export const metadata: Metadata = {
   title: { default: "Wortweg", template: "%s · Wortweg" },
-  description: "Move German vocabulary from recognition to natural active use.",
+  description: "Move vocabulary from recognition to natural active use.",
   icons: { icon: "/favicon.svg" },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><VocabularyProvider><WebMcpTools/><AppShell>{children}</AppShell></VocabularyProvider></body></html>;
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body>
+        <WebVitals />
+        <VocabularyProvider>
+          <WebMcpTools />
+          <AppShell>{children}</AppShell>
+        </VocabularyProvider>
+      </body>
+    </html>
+  );
 }

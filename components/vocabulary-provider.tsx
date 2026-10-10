@@ -1,58 +1,235 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { usePathname } from "next/navigation";
 import { nextState, scheduleNextReview } from "@/lib/learning";
 import { normalizeWord } from "@/lib/import-export";
-import { isSupabaseConfigured, repository } from "@/lib/repository";
-import { LearningResult, Review, ReviewType, Vocabulary, VocabularyDraft } from "@/lib/types";
+import { repository } from "@/lib/repository";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import {
+  LearningResult,
+  LearningLanguage,
+  Review,
+  ReviewType,
+  Vocabulary,
+  VocabularyDraft,
+  VocabularyLearningUpdate,
+} from "@/lib/types";
 
 type ContextValue = {
-  words: Vocabulary[]; reviews: Review[]; loading: boolean; error: string | null; demoMode: boolean;
-  createWord(draft: VocabularyDraft): Promise<Vocabulary>; updateWord(id: string, draft: VocabularyDraft): Promise<Vocabulary>;
-  deleteWord(id: string): Promise<void>; recordResult(id: string, result: LearningResult, reviewType: ReviewType): Promise<void>;
+  language: LearningLanguage;
+  switchingLanguage: boolean;
+  words: Vocabulary[];
+  reviews: Review[];
+  loading: boolean;
+  error: string | null;
+  databaseConnected: boolean;
+  setLearningLanguage(language: LearningLanguage): Promise<void>;
+  createWord(draft: VocabularyDraft): Promise<Vocabulary>;
+  updateWord(id: string, draft: VocabularyDraft): Promise<Vocabulary>;
+  deleteWord(id: string): Promise<void>;
+  recordResult(
+    id: string,
+    result: LearningResult,
+    reviewType: ReviewType,
+  ): Promise<void>;
+  recordResults(
+    results: Array<{
+      id: string;
+      result: LearningResult;
+      reviewType: ReviewType;
+    }>,
+  ): Promise<void>;
+  applyLearningResults(
+    updatedWords: VocabularyLearningUpdate[],
+    savedReviews: Review[],
+  ): void;
   importWords(drafts: VocabularyDraft[]): Promise<{ created: number; updated: number }>;
 };
 const VocabularyContext = createContext<ContextValue | null>(null);
 
 export function VocabularyProvider({ children }: { children: React.ReactNode }) {
-  const [words, setWords] = useState<Vocabulary[]>([]); const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+  const pathname = usePathname();
+  const isAuthPage = pathname === "/" || pathname === "/signup";
+  const [words, setWords] = useState<Vocabulary[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [language, setLanguage] = useState<LearningLanguage>("de");
+  const [switchingLanguage, setSwitchingLanguage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
-    try { const data = await repository.load(); setWords(data.words); setReviews(data.reviews); setError(null); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load vocabulary."); }
-    finally { setLoading(false); }
+    try {
+      const data = await repository.load();
+      setLanguage(data.language);
+      setWords(data.words);
+      setReviews(data.reviews);
+      setError(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not load vocabulary.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useEffect(() => { void load(); }, [load]);
-  const createWord = async (draft: VocabularyDraft) => { const word = await repository.create(draft); setWords((all) => [word, ...all]); return word; };
-  const updateWord = async (id: string, draft: VocabularyDraft) => { const word = await repository.update(id, draft); setWords((all) => all.map((item) => item.id === id ? word : item)); return word; };
-  const deleteWord = async (id: string) => { await repository.remove(id); setWords((all) => all.filter((word) => word.id !== id)); setReviews((all) => all.filter((review) => review.vocabularyId !== id)); };
-  const recordResult = async (id: string, result: LearningResult, reviewType: ReviewType) => {
-    const word = words.find((item) => item.id === id); if (!word) return;
-    const history = reviews.filter((review) => review.vocabularyId === id);
-    const state = nextState(word.state, result, history, reviewType); const reviewedAt = new Date().toISOString();
-    const review = await repository.addReview({ vocabularyId: id, result, reviewType, reviewedAt, nextReviewAt: scheduleNextReview(state, result) });
-    await updateWord(id, { ...word, state }); setReviews((all) => [review, ...all]);
+  useEffect(() => {
+    if (isAuthPage) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    void load();
+  }, [isAuthPage, load]);
+  const changeLearningLanguage = async (nextLanguage: LearningLanguage) => {
+    if (nextLanguage === language || switchingLanguage) return;
+
+    setSwitchingLanguage(true);
+    setLoading(true);
+    try {
+      await repository.setLearningLanguage(nextLanguage);
+      const data = await repository.load(nextLanguage);
+      setLanguage(data.language);
+      setWords(data.words);
+      setReviews(data.reviews);
+      setError(null);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Could not change the learning language.",
+      );
+    } finally {
+      setLoading(false);
+      setSwitchingLanguage(false);
+    }
+  };
+  const createWord = async (draft: VocabularyDraft) => {
+    const word = await repository.create(draft, language);
+    setWords((all) => [word, ...all]);
+    return word;
+  };
+  const updateWord = async (id: string, draft: VocabularyDraft) => {
+    const word = await repository.update(id, draft);
+    setWords((all) => all.map((item) => (item.id === id ? word : item)));
+    return word;
+  };
+  const deleteWord = async (id: string) => {
+    await repository.remove(id);
+    setWords((all) => all.filter((word) => word.id !== id));
+    setReviews((all) => all.filter((review) => review.vocabularyId !== id));
+  };
+  const recordResults = async (
+    results: Array<{
+      id: string;
+      result: LearningResult;
+      reviewType: ReviewType;
+    }>,
+  ) => {
+    const uniqueIds = new Set(results.map((result) => result.id));
+    if (uniqueIds.size !== results.length) {
+      throw new Error("A learning batch cannot contain the same word twice.");
+    }
+
+    const reviewedAt = new Date().toISOString();
+    const updates = results.map(({ id, result, reviewType }) => {
+      const word = words.find((item) => item.id === id);
+      if (!word) {
+        throw new Error("A word in this learning batch is no longer available.");
+      }
+
+      const state = nextState(word.state, result, reviewType);
+      return {
+        review: {
+          vocabularyId: id,
+          result,
+          reviewType,
+          reviewedAt,
+        },
+        state,
+        nextReviewAt: scheduleNextReview(state, result),
+      };
+    });
+
+    const saved = await repository.recordLearningResults(updates);
+    const savedWords = new Map(saved.map((item) => [item.word.id, item.word]));
+
+    setWords((all) => all.map((word) => savedWords.get(word.id) ?? word));
+    setReviews((all) => [...saved.map((item) => item.review), ...all]);
+  };
+  const recordResult = async (
+    id: string,
+    result: LearningResult,
+    reviewType: ReviewType,
+  ) => {
+    await recordResults([{ id, result, reviewType }]);
+  };
+  const applyLearningResults = (
+    updatedWords: VocabularyLearningUpdate[],
+    savedReviews: Review[],
+  ) => {
+    const updates = new Map(updatedWords.map((word) => [word.id, word]));
+    setWords((all) =>
+      all.map((word) => {
+        const update = updates.get(word.id);
+        return update ? { ...word, ...update } : word;
+      }),
+    );
+    setReviews((all) => [...savedReviews, ...all]);
   };
   const importWords = async (drafts: VocabularyDraft[]) => {
-    let created = 0, updated = 0;
-    const known = new Map(words.map((word) => [normalizeWord(word.word), word]));
+    let created = 0,
+      updated = 0;
+    const known = new Map(
+      words.map((word) => [normalizeWord(word.word, language), word]),
+    );
     for (const draft of drafts) {
-      const key = normalizeWord(draft.word);
+      const key = normalizeWord(draft.word, language);
       const existing = known.get(key);
       if (existing) {
         const merged = await updateWord(existing.id, { ...existing, ...draft });
-        known.set(key, merged); updated += 1;
+        known.set(key, merged);
+        updated += 1;
       } else {
         const added = await createWord(draft);
-        known.set(key, added); created += 1;
+        known.set(key, added);
+        created += 1;
       }
     }
     return { created, updated };
   };
-  const value = useMemo(() => ({ words, reviews, loading, error, demoMode: !isSupabaseConfigured, createWord, updateWord, deleteWord, recordResult, importWords }), [words, reviews, loading, error]);
-  return <VocabularyContext.Provider value={value}>{children}</VocabularyContext.Provider>;
+  const value = useMemo(
+    () => ({
+      language,
+      switchingLanguage,
+      words,
+      reviews,
+      loading,
+      error,
+      databaseConnected: isSupabaseConfigured,
+      setLearningLanguage: changeLearningLanguage,
+      createWord,
+      updateWord,
+      deleteWord,
+      recordResult,
+      recordResults,
+      applyLearningResults,
+      importWords,
+    }),
+    [language, switchingLanguage, words, reviews, loading, error],
+  );
+  return (
+    <VocabularyContext.Provider value={value}>{children}</VocabularyContext.Provider>
+  );
 }
 
 export function useVocabulary() {
-  const value = useContext(VocabularyContext); if (!value) throw new Error("useVocabulary must be used inside VocabularyProvider"); return value;
+  const value = useContext(VocabularyContext);
+  if (!value) throw new Error("useVocabulary must be used inside VocabularyProvider");
+  return value;
 }

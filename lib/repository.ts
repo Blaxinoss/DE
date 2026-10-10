@@ -1,82 +1,252 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { Review, Vocabulary, VocabularyDraft } from "./types";
+import { LearningLanguage, Review, Vocabulary, VocabularyDraft } from "./types";
+import { createClient, isSupabaseConfigured } from "./supabase/client";
+import type { Database, Json } from "./database.types";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-export const isSupabaseConfigured = Boolean(url && key);
-const client: SupabaseClient | null = isSupabaseConfigured ? createClient(url!, key!) : null;
+const supabase = isSupabaseConfigured ? createClient() : null;
 
-const toWord = (row: Record<string, unknown>): Vocabulary => ({
-  id: String(row.id), word: String(row.word), meaningAr: String(row.meaning_ar ?? ""), type: row.type as Vocabulary["type"],
-  target: row.target as Vocabulary["target"], state: row.state as Vocabulary["state"], grammar: (row.grammar_json ?? {}) as Record<string, unknown>,
-  commonness: row.commonness as string | null, chunk: row.chunk as string | null, example: row.example as string | null,
-  createdAt: String(row.created_at), updatedAt: String(row.updated_at),
-});
-const toReview = (row: Record<string, unknown>): Review => ({
-  id: String(row.id), vocabularyId: String(row.vocabulary_id), result: row.result as Review["result"], reviewType: row.review_type as Review["reviewType"],
-  reviewedAt: String(row.reviewed_at), nextReviewAt: String(row.next_review_at),
-});
-const toRow = (draft: VocabularyDraft) => ({
-  word: draft.word, meaning_ar: draft.meaningAr, type: draft.type, target: draft.target, state: draft.state,
-  grammar_json: draft.grammar, commonness: draft.commonness, chunk: draft.chunk, example: draft.example,
-});
+function getSupabase() {
+  if (!supabase) {
+    throw new Error(
+      "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local, then restart the app.",
+    );
+  }
 
-const now = new Date().toISOString();
-const demoWords: Vocabulary[] = [
-  { id: "demo-1", word: "vermeiden", meaningAr: "يتجنب", type: "verb", target: "active", state: "slow_recall", grammar: { past: "vermied", auxiliary: "haben", partizipII: "vermieden", objectCase: "Akkusativ" }, commonness: "common", chunk: "Fehler vermeiden", example: "Ich versuche, unnötige Fehler zu vermeiden.", createdAt: now, updatedAt: now },
-  { id: "demo-2", word: "verantwortlich", meaningAr: "مسؤول", type: "adjective", target: "active", state: "passive", grammar: {}, commonness: "common", chunk: "für etwas verantwortlich sein", example: "Wer ist für diese Entscheidung verantwortlich?", createdAt: now, updatedAt: now },
-  { id: "demo-3", word: "die Gewohnheit", meaningAr: "العادة", type: "noun", target: "passive", state: "recognition", grammar: { article: "die", plural: "die Gewohnheiten" }, commonness: "common", chunk: "eine Gewohnheit ändern", example: "Es braucht Zeit, eine Gewohnheit zu ändern.", createdAt: now, updatedAt: now },
-];
-const DEMO_WORDS_KEY = "wortweg-demo-words";
-const DEMO_REVIEWS_KEY = "wortweg-demo-reviews";
-function readDemo<T>(storageKey: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  const value = localStorage.getItem(storageKey);
-  return value ? JSON.parse(value) as T : fallback;
+  return supabase;
 }
-function writeDemo(storageKey: string, value: unknown) { localStorage.setItem(storageKey, JSON.stringify(value)); }
+
+function vocabularyWriteError(error: { code?: string; message: string }): Error {
+  if (error.code === "23505") {
+    return new Error("This word already exists in your current language course.");
+  }
+
+  return new Error(error.message);
+}
+
+type VocabularyRow = {
+  id: string;
+  language: LearningLanguage;
+  word: string;
+  meaning_ar: string | null;
+  type: Vocabulary["type"];
+  target: Vocabulary["target"];
+  state: Vocabulary["state"];
+  grammar_json: Record<string, unknown> | null;
+  commonness: string | null;
+  chunk: string | null;
+  example: string | null;
+  next_review_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ReviewRow = {
+  id: string;
+  vocabulary_id: string;
+  result: Review["result"];
+  review_type: Review["reviewType"];
+  reviewed_at: string;
+};
+
+function toVocabulary(row: VocabularyRow): Vocabulary {
+  return {
+    id: row.id,
+    language: row.language,
+    word: row.word,
+    meaningAr: row.meaning_ar ?? "",
+    type: row.type,
+    target: row.target,
+    state: row.state,
+    grammar: row.grammar_json ?? {},
+    commonness: row.commonness,
+    chunk: row.chunk,
+    example: row.example,
+    nextReviewAt: row.next_review_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toReview(row: ReviewRow): Review {
+  return {
+    id: row.id,
+    vocabularyId: row.vocabulary_id,
+    result: row.result,
+    reviewType: row.review_type,
+    reviewedAt: row.reviewed_at,
+  };
+}
+
+function toVocabularyRow(
+  draft: VocabularyDraft,
+): Database["public"]["Tables"]["vocabulary"]["Insert"] {
+  return {
+    word: draft.word,
+    meaning_ar: draft.meaningAr,
+    type: draft.type,
+    target: draft.target,
+    state: draft.state,
+    grammar_json: draft.grammar as Json,
+    commonness: draft.commonness,
+    chunk: draft.chunk,
+    example: draft.example,
+  };
+}
 
 export const repository = {
-  async load(): Promise<{ words: Vocabulary[]; reviews: Review[] }> {
-    if (!client) return { words: readDemo(DEMO_WORDS_KEY, demoWords), reviews: readDemo(DEMO_REVIEWS_KEY, []) };
-    const [{ data: words, error: wordsError }, { data: reviews, error: reviewsError }] = await Promise.all([
-      client.from("vocabulary").select("*").order("created_at", { ascending: false }),
+  async getLearningLanguage(): Promise<LearningLanguage> {
+    const client = getSupabase();
+    const { data, error } = await client
+      .from("user_preferences")
+      .select("learning_language")
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.learning_language === "en" ? "en" : "de";
+  },
+
+  async setLearningLanguage(language: LearningLanguage): Promise<void> {
+    const client = getSupabase();
+    const {
+      data: { user },
+      error: userError,
+    } = await client.auth.getUser();
+
+    if (userError) throw userError;
+    if (!user) throw new Error("You must be signed in to change language.");
+
+    const { error } = await client.from("user_preferences").upsert(
+      {
+        user_id: user.id,
+        learning_language: language,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    if (error) throw error;
+  },
+
+  async load(languageOverride?: LearningLanguage): Promise<{
+    language: LearningLanguage;
+    words: Vocabulary[];
+    reviews: Review[];
+  }> {
+    const client = getSupabase();
+    const language = languageOverride ?? (await repository.getLearningLanguage());
+    const [wordsResult, reviewsResult] = await Promise.all([
+      client
+        .from("vocabulary")
+        .select("*")
+        .eq("language", language)
+        .order("created_at", { ascending: false }),
       client.from("reviews").select("*").order("reviewed_at", { ascending: false }),
     ]);
-    if (wordsError || reviewsError) throw wordsError ?? reviewsError;
-    return { words: (words ?? []).map(toWord), reviews: (reviews ?? []).map(toReview) };
+
+    if (wordsResult.error) throw wordsResult.error;
+    if (reviewsResult.error) throw reviewsResult.error;
+
+    const words = (wordsResult.data as VocabularyRow[]).map(toVocabulary);
+    const wordIds = new Set(words.map((word) => word.id));
+
+    return {
+      language,
+      words,
+      reviews: (reviewsResult.data as ReviewRow[])
+        .filter((review) => wordIds.has(review.vocabulary_id))
+        .map(toReview),
+    };
   },
-  async create(draft: VocabularyDraft): Promise<Vocabulary> {
-    if (!client) {
-      const stamp = new Date().toISOString();
-      const word = { ...draft, id: crypto.randomUUID(), createdAt: stamp, updatedAt: stamp };
-      writeDemo(DEMO_WORDS_KEY, [word, ...readDemo<Vocabulary[]>(DEMO_WORDS_KEY, demoWords)]); return word;
-    }
-    const { data, error } = await client.from("vocabulary").insert(toRow(draft)).select().single();
-    if (error) throw error; return toWord(data);
+
+  async create(
+    draft: VocabularyDraft,
+    language: LearningLanguage,
+  ): Promise<Vocabulary> {
+    const { data, error } = await getSupabase()
+      .from("vocabulary")
+      .insert({ ...toVocabularyRow(draft), language })
+      .select()
+      .single();
+
+    if (error) throw vocabularyWriteError(error);
+    return toVocabulary(data as VocabularyRow);
   },
+
   async update(id: string, draft: VocabularyDraft): Promise<Vocabulary> {
-    if (!client) {
-      const words = readDemo<Vocabulary[]>(DEMO_WORDS_KEY, demoWords);
-      const word = { ...draft, id, createdAt: words.find((item) => item.id === id)?.createdAt ?? new Date().toISOString(), updatedAt: new Date().toISOString() };
-      writeDemo(DEMO_WORDS_KEY, words.map((item) => item.id === id ? word : item)); return word;
-    }
-    const { data, error } = await client.from("vocabulary").update(toRow(draft)).eq("id", id).select().single();
-    if (error) throw error; return toWord(data);
+    const changes: Database["public"]["Tables"]["vocabulary"]["Update"] =
+      toVocabularyRow(draft);
+
+    const { data, error } = await getSupabase()
+      .from("vocabulary")
+      .update(changes)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw vocabularyWriteError(error);
+    return toVocabulary(data as VocabularyRow);
   },
+
   async remove(id: string): Promise<void> {
-    if (!client) {
-      writeDemo(DEMO_WORDS_KEY, readDemo<Vocabulary[]>(DEMO_WORDS_KEY, demoWords).filter((word) => word.id !== id));
-      writeDemo(DEMO_REVIEWS_KEY, readDemo<Review[]>(DEMO_REVIEWS_KEY, []).filter((review) => review.vocabularyId !== id)); return;
-    }
-    const { error } = await client.from("vocabulary").delete().eq("id", id); if (error) throw error;
+    const { error } = await getSupabase().from("vocabulary").delete().eq("id", id);
+
+    if (error) throw error;
   },
-  async addReview(review: Omit<Review, "id">): Promise<Review> {
-    if (!client) {
-      const item = { ...review, id: crypto.randomUUID() };
-      writeDemo(DEMO_REVIEWS_KEY, [item, ...readDemo<Review[]>(DEMO_REVIEWS_KEY, [])]); return item;
-    }
-    const { data, error } = await client.from("reviews").insert({ vocabulary_id: review.vocabularyId, result: review.result, review_type: review.reviewType, reviewed_at: review.reviewedAt, next_review_at: review.nextReviewAt }).select().single();
-    if (error) throw error; return toReview(data);
+
+  async recordLearningResult(
+    review: Omit<Review, "id">,
+    state: Vocabulary["state"],
+    nextReviewAt: string,
+  ): Promise<{ review: Review; word: Vocabulary }> {
+    const { data, error } = await getSupabase().rpc("record_learning_result", {
+      p_vocabulary_id: review.vocabularyId,
+      p_result: review.result,
+      p_review_type: review.reviewType,
+      p_reviewed_at: review.reviewedAt,
+      p_next_review_at: nextReviewAt,
+      p_state: state,
+    });
+
+    if (error) throw error;
+    const saved = data as unknown as {
+      review: ReviewRow;
+      vocabulary: VocabularyRow;
+    };
+    return {
+      review: toReview(saved.review),
+      word: toVocabulary(saved.vocabulary),
+    };
+  },
+
+  async recordLearningResults(
+    results: Array<{
+      review: Omit<Review, "id">;
+      state: Vocabulary["state"];
+      nextReviewAt: string;
+    }>,
+  ): Promise<Array<{ review: Review; word: Vocabulary }>> {
+    const payload = results.map(({ review, state, nextReviewAt }) => ({
+      vocabulary_id: review.vocabularyId,
+      result: review.result,
+      review_type: review.reviewType,
+      reviewed_at: review.reviewedAt,
+      next_review_at: nextReviewAt,
+      state,
+    }));
+
+    const { data, error } = await getSupabase().rpc("record_learning_results", {
+      p_results: payload,
+    });
+
+    if (error) throw error;
+
+    const saved = data as unknown as Array<{
+      review: ReviewRow;
+      vocabulary: VocabularyRow;
+    }>;
+
+    return saved.map((result) => ({
+      review: toReview(result.review),
+      word: toVocabulary(result.vocabulary),
+    }));
   },
 };

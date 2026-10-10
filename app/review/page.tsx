@@ -2,19 +2,199 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, RotateCcw } from "lucide-react";
-import { isDue } from "@/lib/learning";
+import { isReviewReady, nearestReviewDelay } from "@/lib/learning";
 import { ReviewResult } from "@/lib/types";
 import { useVocabulary } from "@/components/vocabulary-provider";
 import { EmptyState, LoadingState, PageHeader, StateBadge } from "@/components/ui";
+import { GrammarDetails } from "@/components/grammar-details";
+import { languageDetails } from "@/lib/languages";
+import { useCurrentTime } from "@/components/use-current-time";
 
-const options: { result: ReviewResult; label: string; detail: string; style: string }[] = [
-  { result: "instant", label: "Instant", detail: "Immediate recall", style: "border-[#9bdc78] hover:bg-[#effbe9]" }, { result: "slow", label: "Slow", detail: "Needed a moment", style: "border-[#9eb6ff] hover:bg-[#eef2ff]" },
-  { result: "hint", label: "Hint", detail: "Needed some help", style: "border-[#ffd371] hover:bg-[#fff8e7]" }, { result: "wrong", label: "Wrong", detail: "Could not recall", style: "border-[#ffad9f] hover:bg-[#fff1ed]" },
+const options: {
+  result: ReviewResult;
+  label: string;
+  detail: string;
+  style: string;
+}[] = [
+  {
+    result: "instant",
+    label: "Instant",
+    detail: "Immediate recall",
+    style: "border-[#396e61] hover:bg-[#17352f]",
+  },
+  {
+    result: "slow",
+    label: "Slow",
+    detail: "Needed a moment",
+    style: "border-[var(--blue-line)] hover:bg-[var(--blue-soft)]",
+  },
+  {
+    result: "hint",
+    label: "Hint",
+    detail: "Needed some help",
+    style: "border-[#755f32] hover:bg-[#30291b]",
+  },
+  {
+    result: "wrong",
+    label: "Wrong",
+    detail: "Could not recall",
+    style: "border-[#70464d] hover:bg-[var(--danger-soft)]",
+  },
 ];
 export default function ReviewPage() {
-  const { words, reviews, loading, recordResult } = useVocabulary(); const queue = useMemo(() => words.filter((word) => isDue(word.id, reviews)), [words, reviews]);
-  const [index, setIndex] = useState(0); const [revealed, setRevealed] = useState(false); const [sessionDone, setSessionDone] = useState(0); const [busy, setBusy] = useState(false);
-  if (loading) return <LoadingState/>; const current = queue[index];
-  const grade = async (result: ReviewResult) => { if (!current) return; setBusy(true); await recordResult(current.id, result, "review"); setSessionDone((n) => n + 1); setRevealed(false); setIndex(0); setBusy(false); };
-  return <><PageHeader eyebrow="Retrieval practice" title="Review" description="Can you retrieve the word quickly, without help?"/>{!current ? <EmptyState title={sessionDone ? "Review complete" : "Nothing due right now"} text={sessionDone ? `You reviewed ${sessionDone} ${sessionDone === 1 ? "word" : "words"}. Come back when the next words are due.` : "Your current schedule is clear. Activation practice may still be ready."} action={<Link className="btn-primary" href="/activate">Practice active use</Link>}/> : <section className="mx-auto max-w-3xl"><div className="mb-4 flex items-center justify-between text-sm font-bold text-[#687085]"><span>{index + 1} of {queue.length} due</span><span>{sessionDone} completed</span></div><div className="mb-6 h-2 overflow-hidden rounded-full bg-[#dfe4ee]"><div className="h-full rounded-full bg-[#2757d6]" style={{ width: `${((index + 1) / queue.length) * 100}%` }}/></div><article className="surface min-h-[430px] overflow-hidden"><div className="border-b border-[#e4e8f0] bg-[#fafbfe] px-6 py-4 sm:px-9"><span className="text-sm font-extrabold text-[#687085]">Arabic → German</span></div><div className="flex min-h-[350px] flex-col items-center justify-center p-7 text-center sm:p-10"><StateBadge state={current.state}/><p className="mt-7 text-sm font-bold text-[#7b8395]">How do you say this in German?</p><h2 className="mt-3 max-w-xl text-3xl font-black leading-snug" dir="rtl" lang="ar">{current.meaningAr}</h2>{!revealed ? <button className="btn-primary mt-10 min-w-44" onClick={() => setRevealed(true)}><Eye size={18}/>Show answer</button> : <div className="mt-8 w-full"><div className="rounded-2xl bg-[#172033] p-6 text-white"><p className="text-3xl font-black" lang="de">{current.chunk || current.word}</p>{current.example && <p className="mt-3 text-base leading-relaxed text-[#cbd2df]" lang="de">{current.example}</p>}</div><p className="mb-3 mt-7 text-sm font-bold text-[#687085]">How did recall feel?</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{options.map((option) => <button key={option.result} disabled={busy} onClick={() => void grade(option.result)} className={`min-h-20 rounded-xl border-2 bg-white p-3 text-left transition ${option.style}`}><span className="block text-sm font-black">{option.label}</span><span className="mt-1 block text-xs text-[#687085]">{option.detail}</span></button>)}</div></div>}</div></article>{revealed && <button className="mx-auto mt-4 flex items-center gap-2 text-sm font-bold text-[#687085]" onClick={() => setRevealed(false)}><RotateCcw size={15}/>Hide answer</button>}</section>}</>;
+  const { language, words, loading, recordResult } = useVocabulary();
+  const details = languageDetails[language];
+  const now = useCurrentTime();
+  const queue = useMemo(
+    () => words.filter((word) => isReviewReady(word, now)),
+    [words, now],
+  );
+  const [index, setIndex] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [sessionDone, setSessionDone] = useState(0);
+  const [busy, setBusy] = useState(false);
+  if (loading) return <LoadingState />;
+  const current = queue[index];
+
+  const backIn = current ? null : nearestReviewDelay(words, now);
+
+  const grade = async (result: ReviewResult) => {
+    if (!current) return;
+    setBusy(true);
+    await recordResult(current.id, result, "review");
+    setSessionDone((n) => n + 1);
+    setRevealed(false);
+    setIndex(0);
+    setBusy(false);
+  };
+  return (
+    <>
+      <PageHeader
+        eyebrow="Retrieval practice"
+        title="Review"
+        description="Can you retrieve the word quickly, without help?"
+      />
+      {!current ? (
+        <EmptyState
+          title={
+            sessionDone
+              ? "Review complete"
+              : backIn
+                ? `Nothing due now — next review in ${backIn}`
+                : "Nothing due right now"
+          }
+          text={
+            sessionDone
+              ? `You reviewed ${sessionDone} ${sessionDone === 1 ? "word" : "words"}. Come back when the next words are due.`
+              : "Your current schedule is clear. Activation practice may still be ready."
+          }
+          action={
+            <Link
+              className="btn-primary"
+              href="/activate"
+            >
+              Practice active use
+            </Link>
+          }
+        />
+      ) : (
+        <section className="mx-auto max-w-3xl">
+          <div className="mb-4 flex items-center justify-between text-sm font-bold text-[var(--muted)]">
+            <span>
+              {index + 1} of {queue.length} due
+            </span>
+            <span>{sessionDone} completed</span>
+          </div>
+          <div className="mb-6 h-2 overflow-hidden rounded-full bg-[var(--line)]">
+            <div
+              className="h-full rounded-full bg-[var(--blue-strong)]"
+              style={{ width: `${((index + 1) / queue.length) * 100}%` }}
+            />
+          </div>
+          <article className="surface min-h-[430px] overflow-hidden">
+            <div className="border-b border-[var(--line)] bg-[var(--panel-soft)] px-6 py-4 sm:px-9">
+              <span className="text-sm font-extrabold text-[var(--muted)]">
+                Arabic → {details.name}
+              </span>
+            </div>
+            <div className="flex min-h-[350px] flex-col items-center justify-center p-7 text-center sm:p-10">
+              <StateBadge state={current.state} />
+              <p className="mt-7 text-sm font-bold text-[var(--muted)]">
+                How do you say this in {details.name}?
+              </p>
+              <h2
+                className="mt-3 max-w-xl text-3xl font-black leading-snug text-[var(--ink)]"
+                dir="rtl"
+                lang="ar"
+              >
+                {current.meaningAr}
+              </h2>
+              {!revealed ? (
+                <button
+                  className="btn-primary mt-10 min-w-44"
+                  onClick={() => setRevealed(true)}
+                >
+                  <Eye size={18} />
+                  Show answer
+                </button>
+              ) : (
+                <div className="mt-8 w-full">
+                  <div className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] p-6 text-white">
+                    <p
+                      className="text-3xl font-black"
+                      lang={language}
+                    >
+                      {current.chunk || current.word}
+                    </p>
+                    <GrammarDetails
+                      grammar={current.grammar}
+                      language={language}
+                      compact
+                    />
+                    {current.example && (
+                      <p
+                        className="mt-4 text-base leading-relaxed text-[var(--ink-soft)]"
+                        lang={language}
+                      >
+                        {current.example}
+                      </p>
+                    )}
+                  </div>
+                  <p className="mb-3 mt-7 text-sm font-bold text-[var(--muted)]">
+                    How did recall feel?
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {options.map((option) => (
+                      <button
+                        key={option.result}
+                        disabled={busy}
+                        onClick={() => void grade(option.result)}
+                        className={`min-h-20 rounded-xl border bg-[var(--panel-soft)] p-3 text-left transition ${option.style}`}
+                      >
+                        <span className="block text-sm font-black text-[var(--ink)]">
+                          {option.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-[var(--muted)]">
+                          {option.detail}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </article>
+          {revealed && (
+            <button
+              className="mx-auto mt-4 flex items-center gap-2 text-sm font-bold text-[var(--muted)] transition hover:text-[var(--ink)]"
+              onClick={() => setRevealed(false)}
+            >
+              <RotateCcw size={15} />
+              Hide answer
+            </button>
+          )}
+        </section>
+      )}
+    </>
+  );
 }
