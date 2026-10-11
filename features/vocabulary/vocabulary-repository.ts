@@ -33,6 +33,7 @@ function vocabularyWriteError(error: { code?: string; message: string }): Error 
 type VocabularyRow = {
   id: string;
   language: LearningLanguage;
+  lexicon_id: string | null;
   word: string;
   meaning_ar: string | null;
   type: Vocabulary["type"];
@@ -59,6 +60,7 @@ function toVocabulary(row: VocabularyRow): Vocabulary {
   return {
     id: row.id,
     language: row.language,
+    lexiconId: row.lexicon_id,
     word: row.word,
     meaningAr: row.meaning_ar ?? "",
     type: row.type,
@@ -88,6 +90,7 @@ function toVocabularyRow(
   draft: VocabularyDraft,
 ): Database["public"]["Tables"]["vocabulary"]["Insert"] {
   return {
+    lexicon_id: draft.lexiconId ?? null,
     word: draft.word,
     meaning_ar: draft.meaningAr,
     type: draft.type,
@@ -166,18 +169,36 @@ export const vocabularyRepository = {
     };
   },
 
+  async createWords(
+    drafts: VocabularyDraft[],
+    language: LearningLanguage,
+  ): Promise<Vocabulary[]> {
+    if (drafts.length === 0) return [];
+
+    const rows = drafts.map((draft) => ({
+      ...toVocabularyRow(draft),
+      language,
+    }));
+    const { data, error } = await getVocabularyDatabase()
+      .from("vocabulary")
+      .upsert(rows, {
+        onConflict: "user_id,lexicon_id",
+        ignoreDuplicates: true,
+        defaultToNull: false,
+      })
+      .select();
+
+    if (error) throw vocabularyWriteError(error);
+    return (data as VocabularyRow[]).map(toVocabulary);
+  },
+
   async createWord(
     draft: VocabularyDraft,
     language: LearningLanguage,
   ): Promise<Vocabulary> {
-    const { data, error } = await getVocabularyDatabase()
-      .from("vocabulary")
-      .insert({ ...toVocabularyRow(draft), language })
-      .select()
-      .single();
-
-    if (error) throw vocabularyWriteError(error);
-    return toVocabulary(data as VocabularyRow);
+    const [word] = await vocabularyRepository.createWords([draft], language);
+    if (!word) throw new Error("Could not create the word.");
+    return word;
   },
 
   async updateWord(id: string, draft: VocabularyDraft): Promise<Vocabulary> {

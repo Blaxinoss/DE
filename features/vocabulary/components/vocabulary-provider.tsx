@@ -33,6 +33,7 @@ type ContextValue = {
   databaseConnected: boolean;
   setLearningLanguage(language: LearningLanguage): Promise<void>;
   createWord(draft: VocabularyDraft): Promise<Vocabulary>;
+  createWords(drafts: VocabularyDraft[]): Promise<Vocabulary[]>;
   updateWord(id: string, draft: VocabularyDraft): Promise<Vocabulary>;
   deleteWord(id: string): Promise<void>;
   recordResult(
@@ -109,9 +110,14 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       setSwitchingLanguage(false);
     }
   };
+  const createWords = async (drafts: VocabularyDraft[]) => {
+    const createdWords = await vocabularyRepository.createWords(drafts, language);
+    setWords((all) => [...createdWords, ...all]);
+    return createdWords;
+  };
   const createWord = async (draft: VocabularyDraft) => {
-    const word = await vocabularyRepository.createWord(draft, language);
-    setWords((all) => [word, ...all]);
+    const [word] = await createWords([draft]);
+    if (!word) throw new Error("Could not create the word.");
     return word;
   };
   const updateWord = async (id: string, draft: VocabularyDraft) => {
@@ -214,6 +220,7 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       databaseConnected: isSupabaseConfigured,
       setLearningLanguage: changeLearningLanguage,
       createWord,
+      createWords,
       updateWord,
       deleteWord,
       recordResult,

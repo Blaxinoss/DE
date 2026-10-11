@@ -10,6 +10,7 @@ import { Vocabulary } from "./types";
 const baseWord: Vocabulary = {
   id: "word-id",
   language: "de",
+  lexiconId: null,
   word: "lernen",
   meaningAr: "يتعلم",
   type: "verb",

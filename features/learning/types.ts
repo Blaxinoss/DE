@@ -22,6 +22,7 @@ export type ReviewType = "review" | "activate";
 export interface Vocabulary {
   id: string;
   language: LearningLanguage;
+  lexiconId: string | null;
   word: string;
   meaningAr: string;
   type: WordType;
@@ -51,5 +52,5 @@ export type VocabularyLearningUpdate = Pick<
 
 export type VocabularyDraft = Omit<
   Vocabulary,
-  "id" | "language" | "nextReviewAt" | "createdAt" | "updatedAt"
->;
+  "id" | "language" | "lexiconId" | "nextReviewAt" | "createdAt" | "updatedAt"
+> & { lexiconId?: string | null };

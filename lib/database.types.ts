@@ -303,6 +303,7 @@ export type Database = {
           grammar_json: Json
           id: string
           language: string
+          lexicon_id: string | null
           meaning_ar: string
           next_review_at: string | null
           state: string
@@ -320,6 +321,7 @@ export type Database = {
           grammar_json?: Json
           id?: string
           language?: string
+          lexicon_id?: string | null
           meaning_ar?: string
           next_review_at?: string | null
           state?: string
@@ -337,6 +339,7 @@ export type Database = {
           grammar_json?: Json
           id?: string
           language?: string
+          lexicon_id?: string | null
           meaning_ar?: string
           next_review_at?: string | null
           state?: string
@@ -346,7 +349,15 @@ export type Database = {
           user_id?: string
           word?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vocabulary_lexicon_id_fkey"
+            columns: ["lexicon_id"]
+            isOneToOne: false
+            referencedRelation: "global_lexicon"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

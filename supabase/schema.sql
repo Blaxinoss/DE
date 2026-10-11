@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS public.global_lexicon (
   UNIQUE (language, sense_key)
 );
 
+ALTER TABLE public.vocabulary
+ADD COLUMN IF NOT EXISTS lexicon_id UUID REFERENCES public.global_lexicon(id) ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS public.user_preferences (
   user_id           UUID PRIMARY KEY DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   learning_language TEXT NOT NULL DEFAULT 'de' CHECK (learning_language IN ('de', 'en')),
@@ -121,7 +124,9 @@ CREATE TABLE IF NOT EXISTS public.activation_word_results (
 
 DROP INDEX IF EXISTS public.vocabulary_normalized_word_idx;
 
-CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_language_word_idx ON public.vocabulary (user_id, language, LOWER(TRIM(word)));
+CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_lexicon_idx ON public.vocabulary (user_id, lexicon_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_language_custom_word_idx ON public.vocabulary (user_id, language, LOWER(TRIM(word))) WHERE lexicon_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS reviews_vocabulary_date_idx ON public.reviews (
     vocabulary_id,

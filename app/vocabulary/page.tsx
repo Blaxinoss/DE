@@ -20,6 +20,12 @@ function grammarString(word: Vocabulary, key: string): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+const genderColors = {
+  male: "text-[#38bdf8]",
+  female: "text-[#e879f9]",
+  other: "text-[#34d399]",
+};
+
 function TargetWordHeading({
   word,
   language,
@@ -29,6 +35,11 @@ function TargetWordHeading({
 }) {
   const details = languageDetails[language];
   const article = grammarString(word, "article");
+  const Articlecolor = article?.includes("der")
+    ? genderColors["male"]
+    : article?.includes("die")
+      ? genderColors["female"]
+      : genderColors["other"];
   const singular = grammarString(word, "singular");
   const plural = grammarString(word, "plural");
   const headword = singular ?? word.word;
@@ -44,7 +55,7 @@ function TargetWordHeading({
       lang={language}
     >
       {article && !alreadyHasArticle && (
-        <span className="text-[var(--lime)]">{article}</span>
+        <span className={`${Articlecolor}`}>{article}</span>
       )}
       <span>{headword}</span>
       {plural && (
@@ -57,7 +68,7 @@ function TargetWordHeading({
 }
 
 export default function VocabularyPage() {
-  const { language, words, loading, createWord, updateWord, deleteWord } =
+  const { language, words, loading, createWords, updateWord, deleteWord } =
     useVocabulary();
   const details = languageDetails[language];
   const [query, setQuery] = useState("");
@@ -65,6 +76,13 @@ export default function VocabularyPage() {
   const [state, setState] = useState<VocabularyState | "all">("all");
   const [editing, setEditing] = useState<Vocabulary | "new" | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const existingLexiconIds = useMemo(
+    () =>
+      new Set(
+        words.map((word) => word.lexiconId).filter((id): id is string => id !== null),
+      ),
+    [words],
+  );
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("add") === "1") {
@@ -300,12 +318,15 @@ export default function VocabularyPage() {
         <VocabularyForm
           initial={editing === "new" ? undefined : editing}
           language={language}
+          existingLexiconIds={existingLexiconIds}
           onClose={() => setEditing(null)}
-          onSave={(draft) =>
-            editing === "new"
-              ? createWord(draft).then(() => undefined)
-              : updateWord(editing.id, draft).then(() => undefined)
-          }
+          onCreate={(drafts) => createWords(drafts).then(() => undefined)}
+          onUpdate={(draft) => {
+            if (editing === "new") {
+              throw new Error("No word selected for editing.");
+            }
+            return updateWord(editing.id, draft).then(() => undefined);
+          }}
         />
       )}
     </>

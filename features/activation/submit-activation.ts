@@ -35,6 +35,7 @@ function toVocabulary(row: VocabularyRow): Vocabulary {
   return {
     id: row.id,
     language: row.language as Vocabulary["language"],
+    lexiconId: row.lexicon_id,
     word: row.word,
     meaningAr: row.meaning_ar,
     type: row.type as Vocabulary["type"],

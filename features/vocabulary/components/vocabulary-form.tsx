@@ -76,21 +76,29 @@ function WordOption({
   suggestion,
   language,
   selected,
+  alreadyAdded,
   onSelect,
 }: {
   suggestion: WordSuggestion;
   language: LearningLanguage;
   selected: boolean;
+  alreadyAdded: boolean;
   onSelect(): void;
 }) {
+  const unavailable = suggestion.id === null;
+  const disabled = alreadyAdded || unavailable;
+
   return (
     <button
       type="button"
       className={`w-full rounded-2xl border p-4 text-left transition ${
-        selected
-          ? "border-[var(--lime)] bg-[var(--panel-muted)]"
-          : "border-[var(--line)] bg-[var(--panel-soft)] hover:border-[var(--blue-strong)]"
+        disabled
+          ? "cursor-not-allowed border-[var(--line)] bg-[var(--panel-soft)] opacity-60"
+          : selected
+            ? "border-[var(--lime)] bg-[var(--panel-muted)]"
+            : "border-[var(--line)] bg-[var(--panel-soft)] hover:border-[var(--blue-strong)]"
       }`}
+      disabled={disabled}
       onClick={onSelect}
     >
       <div className="flex items-start justify-between gap-3">
@@ -103,6 +111,17 @@ function WordOption({
               {suggestion.word}
             </strong>
             <span className="chip capitalize">{suggestion.type}</span>
+            {alreadyAdded && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#285149] bg-[#173b37] px-2 py-0.5 text-xs font-bold text-[#9be5d3]">
+                <Check size={12} />
+                Already added
+              </span>
+            )}
+            {unavailable && (
+              <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-xs font-bold text-[var(--muted)]">
+                Unavailable
+              </span>
+            )}
             {suggestion.commonness && (
               <span className="text-xs font-bold text-[var(--muted)]">
                 {suggestion.commonness.replaceAll("_", " ")}
@@ -218,11 +237,13 @@ function GenerateForm({
 
 function NewVocabularyForm({
   language,
+  existingLexiconIds,
   onSave,
   onClose,
 }: {
   language: LearningLanguage;
-  onSave(draft: VocabularyDraft): Promise<void>;
+  existingLexiconIds: ReadonlySet<string>;
+  onSave(drafts: VocabularyDraft[]): Promise<void>;
   onClose(): void;
 }) {
   const details = languageDetails[language];
@@ -231,7 +252,7 @@ function NewVocabularyForm({
   const [query, setQuery] = useState("");
   const [target, setTarget] = useState<Target>("active");
   const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [searchedQuery, setSearchedQuery] = useState("");
   const [message, setMessage] = useState("");
   const [searching, startSearch] = useTransition();
@@ -241,12 +262,18 @@ function NewVocabularyForm({
     initialGenerateDictionaryState,
   );
 
-  const selected =
-    suggestions.find((suggestion) => suggestion.senseKey === selectedKey) ?? null;
+  const selectedIds = new Set(selectedKeys);
+  const selectableSuggestions = suggestions.filter(
+    (suggestion): suggestion is WordSuggestion & { id: string } =>
+      suggestion.id !== null && !existingLexiconIds.has(suggestion.id),
+  );
+  const selectedSuggestions = selectableSuggestions.filter((suggestion) =>
+    selectedIds.has(suggestion.senseKey),
+  );
   const normalizedQuery = query.trim();
 
   useEffect(() => {
-    setSelectedKey(null);
+    setSelectedKeys([]);
     setMessage("");
 
     if (normalizedQuery.length < 2) {
@@ -269,8 +296,12 @@ function NewVocabularyForm({
 
         if (result.ok) {
           setSuggestions(result.suggestions);
-          if (result.suggestions.length === 1) {
-            setSelectedKey(result.suggestions[0].senseKey);
+          if (
+            result.suggestions.length === 1 &&
+            result.suggestions[0].id !== null &&
+            !existingLexiconIds.has(result.suggestions[0].id)
+          ) {
+            setSelectedKeys([result.suggestions[0].senseKey]);
           }
         } else {
           setSuggestions([]);
@@ -280,7 +311,7 @@ function NewVocabularyForm({
     }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [language, normalizedQuery]);
+  }, [existingLexiconIds, language, normalizedQuery]);
 
   useEffect(() => {
     if (handledGeneration.current === generateState) return;
@@ -293,34 +324,38 @@ function NewVocabularyForm({
     if (generateState.status === "success") {
       requestId.current += 1;
       setSuggestions(generateState.suggestions);
-      setSelectedKey(
-        generateState.suggestions.length === 1
-          ? generateState.suggestions[0].senseKey
-          : null,
+      setSelectedKeys(
+        generateState.suggestions.length === 1 &&
+          generateState.suggestions[0].id !== null &&
+          !existingLexiconIds.has(generateState.suggestions[0].id)
+          ? [generateState.suggestions[0].senseKey]
+          : [],
       );
     }
-  }, [generateState, normalizedQuery]);
+  }, [existingLexiconIds, generateState, normalizedQuery]);
 
   const addSelected = () => {
-    if (!selected) {
-      setMessage("Choose one meaning before adding the word.");
+    if (selectedSuggestions.length === 0) {
+      setMessage("Choose one or more meanings before adding words.");
       return;
     }
 
     setMessage("");
     startSave(async () => {
       try {
-        await onSave({
-          word: selected.word,
-          meaningAr: selected.meaningAr,
-          type: selected.type,
+        const drafts: VocabularyDraft[] = selectedSuggestions.map((suggestion) => ({
+          lexiconId: suggestion.id,
+          word: suggestion.word,
+          meaningAr: suggestion.meaningAr,
+          type: suggestion.type,
           target,
           state: "new",
-          grammar: selected.grammar,
-          commonness: selected.commonness,
-          chunk: selected.chunk,
-          example: selected.example,
-        });
+          grammar: suggestion.grammar,
+          commonness: suggestion.commonness,
+          chunk: suggestion.chunk,
+          example: suggestion.example,
+        }));
+        await onSave(drafts);
         onClose();
       } catch (error) {
         setMessage(
@@ -403,18 +438,29 @@ function NewVocabularyForm({
                 compact
               />
             </div>
-            {suggestions.map((suggestion) => (
-              <WordOption
-                key={suggestion.id ?? suggestion.senseKey}
-                suggestion={suggestion}
-                language={language}
-                selected={suggestion.senseKey === selectedKey}
-                onSelect={() => setSelectedKey(suggestion.senseKey)}
-              />
-            ))}
+            {suggestions.map((suggestion) => {
+              const alreadyAdded =
+                suggestion.id !== null && existingLexiconIds.has(suggestion.id);
+
+              return (
+                <WordOption
+                  key={suggestion.id ?? suggestion.senseKey}
+                  suggestion={suggestion}
+                  language={language}
+                  selected={selectedIds.has(suggestion.senseKey)}
+                  alreadyAdded={alreadyAdded}
+                  onSelect={() => {
+                    setSelectedKeys((current) =>
+                      current.includes(suggestion.senseKey)
+                        ? current.filter((key) => key !== suggestion.senseKey)
+                        : [...current, suggestion.senseKey],
+                    );
+                  }}
+                />
+              );
+            })}
           </div>
         )}
-
         {searchFinished && suggestions.length === 0 && !message && (
           <div className="rounded-2xl border border-dashed border-[var(--blue-line)] bg-[var(--blue-soft)] p-5 text-center">
             <p className="font-extrabold text-[var(--ink)]">No shared entry found</p>
@@ -449,10 +495,14 @@ function NewVocabularyForm({
           <button
             type="button"
             className="btn-primary"
-            disabled={!selected || saving || generating}
+            disabled={selectedSuggestions.length === 0 || saving || generating}
             onClick={addSelected}
           >
-            {saving ? "Adding…" : "Add selected word"}
+            {saving
+              ? "Adding…"
+              : `Add ${selectedSuggestions.length} selected ${
+                  selectedSuggestions.length === 1 ? "word" : "words"
+                }`}
           </button>
         </div>
       </div>
@@ -631,12 +681,16 @@ function EditVocabularyForm({
 export function VocabularyForm({
   initial,
   language,
-  onSave,
+  existingLexiconIds,
+  onCreate,
+  onUpdate,
   onClose,
 }: {
   initial?: Vocabulary;
   language: LearningLanguage;
-  onSave(draft: VocabularyDraft): Promise<void>;
+  existingLexiconIds: ReadonlySet<string>;
+  onCreate(drafts: VocabularyDraft[]): Promise<void>;
+  onUpdate(draft: VocabularyDraft): Promise<void>;
   onClose(): void;
 }) {
   if (initial) {
@@ -644,7 +698,7 @@ export function VocabularyForm({
       <EditVocabularyForm
         initial={initial}
         language={language}
-        onSave={onSave}
+        onSave={onUpdate}
         onClose={onClose}
       />
     );
@@ -653,7 +707,8 @@ export function VocabularyForm({
   return (
     <NewVocabularyForm
       language={language}
-      onSave={onSave}
+      existingLexiconIds={existingLexiconIds}
+      onSave={onCreate}
       onClose={onClose}
     />
   );
