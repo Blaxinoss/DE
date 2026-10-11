@@ -31,7 +31,11 @@ Rules:
 - Keep a required reflexive pronoun in a reflexive verb headword, such as "sich erinnern".
 - Distinguish constructions that change meaning or grammar, such as "jemanden an etwas erinnern" and "sich an etwas erinnern".
 - senseKey must be a stable lowercase kebab-case identifier describing the lemma, word type, and sense in English.
-- grammarFacts must contain only useful facts. Use camelCase keys such as article, singular, plural, auxiliary, thirdPerson, past, participle, reflexive, separable, preposition, case, comparative, superlative, countability, or notes.
+- Set commonness according to present-day, general everyday usage of this exact sense, not merely whether the word exists in dictionaries.
+- grammarFacts must contain only useful facts. Use camelCase keys such as article, singular, plural, auxiliary, thirdPerson, past, participle, reflexive, separable, preposition, case, comparative, superlative, countability, synonyms, commonAlternative, usageNote, or notes.
+- When genuinely useful, add synonyms as one ${language.name} string containing at most three close synonyms separated by " · ". Include only synonyms for this exact sense and register; omit the fact rather than listing loose associations.
+- If this entry is less_common or rare and a clearly more common everyday equivalent exists, add commonAlternative with its canonical ${language.name} headword. Add a short usageNote explaining any register, nuance, or construction difference so the learner does not assume perfect interchangeability.
+- Do not add commonAlternative merely to offer stylistic variety, and never call two words interchangeable when their meaning, register, required preposition, or grammar differs.
 - chunk must be a natural high-value collocation for this exact sense, or null.
 - example must be one natural complete ${language.name} sentence demonstrating this exact sense, or null.
 - searchTerms must include the canonical word and useful lookup variants. For reflexive German verbs, include both the reflexive headword and the bare infinitive when relevant.
