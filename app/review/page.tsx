@@ -5,8 +5,15 @@ import { Eye, RotateCcw } from "lucide-react";
 import { isReviewReady, nearestReviewDelay } from "@/features/learning/rules";
 import { ReviewResult } from "@/features/learning/types";
 import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
-import { EmptyState, LoadingState, PageHeader, StateBadge } from "@/components/ui";
+import {
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  StateBadge,
+  TargetBadge,
+} from "@/components/ui";
 import { GrammarDetails } from "@/features/vocabulary/components/grammar-details";
+import { WordIdentity } from "@/features/vocabulary/components/word-identity";
 import { languageDetails } from "@/features/learning/language-config";
 import { useCurrentTime } from "@/hooks/use-current-time";
 
@@ -118,7 +125,10 @@ export default function ReviewPage() {
               </span>
             </div>
             <div className="flex min-h-[350px] flex-col items-center justify-center p-7 text-center sm:p-10">
-              <StateBadge state={current.state} />
+              <div className="flex flex-wrap justify-center gap-2">
+                <StateBadge state={current.state} />
+                <TargetBadge target={current.target} />
+              </div>
               <p className="mt-7 text-sm font-bold text-[var(--muted)]">
                 How do you say this in {details.name}?
               </p>
@@ -140,12 +150,22 @@ export default function ReviewPage() {
               ) : (
                 <div className="mt-8 w-full">
                   <div className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] p-6 text-white">
-                    <p
-                      className="text-3xl font-black"
-                      lang={language}
-                    >
-                      {current.chunk || current.word}
-                    </p>
+                    {current.chunk ? (
+                      <p
+                        className="text-3xl font-black"
+                        lang={language}
+                      >
+                        {current.chunk}
+                      </p>
+                    ) : (
+                      <WordIdentity
+                        word={current.word}
+                        type={current.type}
+                        grammar={current.grammar}
+                        language={language}
+                        className="justify-center text-3xl"
+                      />
+                    )}
                     <GrammarDetails
                       grammar={current.grammar}
                       language={language}

@@ -1,9 +1,18 @@
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { BooleanBadge, ScoreBadge } from "@/components/ui";
 import type { ActivationHistoryAttempt } from "@/features/activation/history-query";
 
-function Score({ label, value }: { label: string; value: number }) {
+const scoreStyles = {
+  Grammar: "border-[var(--blue-line)] text-[var(--blue)]",
+  Natural: "border-[#285149] text-[var(--teal)]",
+  Meaning: "border-[#547840] text-[var(--lime)]",
+} as const;
+
+function Score({ label, value }: { label: keyof typeof scoreStyles; value: number }) {
   return (
-    <span className="rounded-lg border border-[var(--line)] bg-[var(--panel-muted)] px-2.5 py-1.5 text-xs font-bold text-[var(--muted)]">
+    <span
+      className={`rounded-lg border bg-[var(--panel-muted)] px-2.5 py-1.5 text-xs font-bold ${scoreStyles[label]}`}
+    >
       {label} <strong className="text-[var(--ink)]">{value}/10</strong>
     </span>
   );
@@ -26,7 +35,9 @@ export function ActivationHistoryList({
       {attempts.map((attempt, index) => (
         <details
           key={attempt.id}
-          className="surface group overflow-hidden"
+          className={`surface group overflow-hidden border-l-[3px] ${
+            attempt.correct ? "border-l-[#4a8c7c]" : "border-l-[#9b7940]"
+          }`}
           open={index === 0}
         >
           <summary className="cursor-pointer list-none p-5 sm:p-6">
@@ -84,7 +95,7 @@ export function ActivationHistoryList({
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               {attempt.correctedAnswer && (
-                <div className="surface-muted p-4">
+                <div className="rounded-xl border border-[#70464d] bg-[var(--danger-soft)]/55 p-4">
                   <p className="eyebrow">Corrected answer</p>
                   <p
                     className="mt-2 leading-7 text-[var(--ink)]"
@@ -124,18 +135,29 @@ export function ActivationHistoryList({
                         >
                           {word.word}
                         </strong>
-                        <span className="text-sm font-black text-[var(--blue)]">
-                          {word.usageScore}/10
-                        </span>
+                        <ScoreBadge value={word.usageScore} />
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold text-[var(--muted)]">
-                        <span>{word.used ? "Used" : "Not used"}</span>
-                        <span>{word.meaningCorrect ? "Meaning ✓" : "Meaning ×"}</span>
-                        <span>{word.grammarCorrect ? "Grammar ✓" : "Grammar ×"}</span>
-                        <span>{word.naturalUsage ? "Natural ✓" : "Natural ×"}</span>
-                        <span>
-                          {word.collocationCorrect ? "Collocation ✓" : "Collocation ×"}
-                        </span>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        <BooleanBadge
+                          label="Used"
+                          value={word.used}
+                        />
+                        <BooleanBadge
+                          label="Meaning"
+                          value={word.meaningCorrect}
+                        />
+                        <BooleanBadge
+                          label="Grammar"
+                          value={word.grammarCorrect}
+                        />
+                        <BooleanBadge
+                          label="Natural"
+                          value={word.naturalUsage}
+                        />
+                        <BooleanBadge
+                          label="Collocation"
+                          value={word.collocationCorrect}
+                        />
                       </div>
                       {word.feedbackAr && (
                         <p
@@ -163,11 +185,11 @@ export function ActivationHistoryList({
                         <div className="flex items-center justify-between gap-3 text-sm font-black capitalize">
                           <span>{error.type.replace("_", " ")}</span>
                           <span
-                            className={
+                            className={`rounded-full border px-2.5 py-1 text-xs ${
                               error.severity === "major"
-                                ? "text-[var(--danger)]"
-                                : "text-[var(--amber)]"
-                            }
+                                ? "border-[#70464d] bg-[var(--danger-soft)] text-[var(--danger)]"
+                                : "border-[#66542e] bg-[#30291b] text-[var(--amber)]"
+                            }`}
                           >
                             {error.severity}
                           </span>

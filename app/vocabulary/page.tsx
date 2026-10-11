@@ -3,69 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Pencil, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { GrammarDetails } from "@/features/vocabulary/components/grammar-details";
-import { EmptyState, LoadingState, PageHeader, StateBadge } from "@/components/ui";
+import { WordIdentity } from "@/features/vocabulary/components/word-identity";
+import {
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  StateBadge,
+  TargetBadge,
+} from "@/components/ui";
 import { VocabularyForm } from "@/features/vocabulary/components/vocabulary-form";
 import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
 import { languageDetails } from "@/features/learning/language-config";
 import {
-  LearningLanguage,
   Target,
   Vocabulary,
   VocabularyState,
   vocabularyStates,
 } from "@/features/learning/types";
-
-function grammarString(word: Vocabulary, key: string): string | null {
-  const value = word.grammar[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-const genderColors = {
-  male: "text-[#38bdf8]",
-  female: "text-[#e879f9]",
-  other: "text-[#34d399]",
-};
-
-function TargetWordHeading({
-  word,
-  language,
-}: {
-  word: Vocabulary;
-  language: LearningLanguage;
-}) {
-  const details = languageDetails[language];
-  const article = grammarString(word, "article");
-  const Articlecolor = article?.includes("der")
-    ? genderColors["male"]
-    : article?.includes("die")
-      ? genderColors["female"]
-      : genderColors["other"];
-  const singular = grammarString(word, "singular");
-  const plural = grammarString(word, "plural");
-  const headword = singular ?? word.word;
-  const alreadyHasArticle = article
-    ? headword
-        .toLocaleLowerCase(details.locale)
-        .startsWith(`${article.toLocaleLowerCase(details.locale)} `)
-    : false;
-
-  return (
-    <h2
-      className="flex flex-wrap items-baseline gap-x-2 text-xl font-black tracking-tight text-[var(--ink)] sm:text-2xl"
-      lang={language}
-    >
-      {article && !alreadyHasArticle && (
-        <span className={`${Articlecolor}`}>{article}</span>
-      )}
-      <span>{headword}</span>
-      {plural && (
-        <span className="text-base font-bold tracking-normal text-[var(--muted)]">
-          – {plural}
-        </span>
-      )}
-    </h2>
-  );
-}
 
 export default function VocabularyPage() {
   const { language, words, loading, createWords, updateWord, deleteWord } =
@@ -228,14 +182,15 @@ export default function VocabularyPage() {
                   >
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <StateBadge state={word.state} />
-                      <span className="chip capitalize">{word.target} target</span>
-                      <span className="text-xs font-bold capitalize text-[var(--muted)]">
-                        {word.type}
-                      </span>
+                      <TargetBadge target={word.target} />
                     </div>
-                    <TargetWordHeading
-                      word={word}
+                    <WordIdentity
+                      word={word.word}
+                      type={word.type}
+                      grammar={word.grammar}
                       language={language}
+                      showPlural
+                      className="text-xl sm:text-2xl"
                     />
                     <p
                       className="mt-1 line-clamp-1 text-base font-bold text-[var(--ink-soft)]"

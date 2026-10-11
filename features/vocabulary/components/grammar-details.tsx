@@ -26,6 +26,19 @@ function valueFor(value: unknown): string | null {
   return String(value);
 }
 
+function toneFor(key: string): string {
+  if (["article", "singular", "plural", "gender"].includes(key)) {
+    return "border-[#285149] bg-[#142c2b]";
+  }
+  if (["present", "past", "partizipII", "auxiliary"].includes(key)) {
+    return "border-[var(--blue-line)] bg-[var(--blue-soft)]";
+  }
+  if (["preposition", "objectCase", "reflexive"].includes(key)) {
+    return "border-[#66542e] bg-[#2b261b]";
+  }
+  return "border-[var(--line)] bg-[var(--panel-soft)]";
+}
+
 export function GrammarDetails({
   grammar,
   compact = false,
@@ -53,7 +66,7 @@ export function GrammarDetails({
       {entries.map(([key, value]) => (
         <div
           key={key}
-          className="rounded-xl border border-[var(--line)] bg-[var(--panel-soft)] px-3 py-2 text-left"
+          className={`rounded-xl border px-3 py-2 text-left ${toneFor(key)}`}
         >
           <dt className="text-[11px] font-extrabold uppercase tracking-[.1em] text-[var(--muted)]">
             {labelFor(key)}

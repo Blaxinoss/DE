@@ -16,6 +16,7 @@ import { languageDetails } from "@/features/learning/language-config";
 import { isActivationReady } from "@/features/learning/rules";
 import { useCurrentTime } from "@/hooks/use-current-time";
 import { submitActivation } from "@/features/activation/submit-activation";
+import { WordIdentity } from "@/features/vocabulary/components/word-identity";
 
 export default function ActivatePage() {
   const { language, words, loading, applyLearningResults } = useVocabulary();
@@ -199,10 +200,15 @@ export default function ActivatePage() {
               {activeBatch.map((word) => (
                 <span
                   key={word.id}
-                  className="rounded-xl border border-[var(--blue-line)] bg-[var(--blue-soft)] px-3 py-2 font-extrabold text-[var(--blue)]"
-                  lang={language}
+                  className="rounded-xl border border-[var(--blue-line)] bg-[var(--blue-soft)] px-3 py-2"
                 >
-                  {word.word}
+                  <WordIdentity
+                    word={word.word}
+                    type={word.type}
+                    grammar={word.grammar}
+                    language={language}
+                    className="text-sm"
+                  />
                 </span>
               ))}
             </div>
@@ -239,12 +245,13 @@ export default function ActivatePage() {
                   className="border-b border-[var(--line)] pb-4 last:border-0"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className="font-black text-[var(--ink)]"
-                      lang={language}
-                    >
-                      {word.word}
-                    </span>
+                    <WordIdentity
+                      word={word.word}
+                      type={word.type}
+                      grammar={word.grammar}
+                      language={language}
+                      className="text-base"
+                    />
                     <StateBadge state={word.state} />
                   </div>
                   {word.chunk && (

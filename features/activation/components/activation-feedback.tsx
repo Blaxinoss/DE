@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, CircleGauge, Sparkles } from "lucide-react";
+import { BooleanBadge, ScoreBadge } from "@/components/ui";
 import {
   ActivationAttemptResponse,
   ActivationResponse,
@@ -20,16 +21,32 @@ const resultStyles: Record<ActivationResult, string> = {
   could_not_use: "bg-[var(--danger-soft)] text-[var(--danger)]",
 };
 
-function Score({ label, value }: { label: string; value: number }) {
+const scoreStyles = {
+  Grammar: {
+    border: "border-[var(--blue-line)]",
+    bar: "bg-[var(--blue-strong)]",
+  },
+  Naturalness: {
+    border: "border-[#285149]",
+    bar: "bg-[var(--teal)]",
+  },
+  Meaning: {
+    border: "border-[#547840]",
+    bar: "bg-[var(--lime)]",
+  },
+} as const;
+
+function Score({ label, value }: { label: keyof typeof scoreStyles; value: number }) {
+  const tone = scoreStyles[label];
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-muted)] p-3">
+    <div className={`rounded-xl border bg-[var(--panel-muted)] p-3 ${tone.border}`}>
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="font-bold text-[var(--muted)]">{label}</span>
         <span className="font-black text-[var(--ink)]">{value}/10</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--line)]">
         <div
-          className="h-full rounded-full bg-[var(--blue-strong)]"
+          className={`h-full rounded-full ${tone.bar}`}
           style={{ width: `${value * 10}%` }}
         />
       </div>
@@ -49,7 +66,11 @@ function AttemptFeedback({
   language: LearningLanguage;
 }) {
   return (
-    <section className="surface p-5 sm:p-7">
+    <section
+      className={`surface border-l-[3px] p-5 sm:p-7 ${
+        attempt.sentence.correct ? "border-l-[#4a8c7c]" : "border-l-[#9b7940]"
+      }`}
+    >
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <p className="eyebrow">
@@ -99,7 +120,7 @@ function AttemptFeedback({
       </p>
 
       {attempt.sentence.corrected && (
-        <div className="mt-5 rounded-xl border border-[var(--line)] bg-[var(--panel-muted)] p-4">
+        <div className="mt-5 rounded-xl border border-[#70464d] bg-[var(--danger-soft)]/55 p-4">
           <p className="text-xs font-extrabold uppercase tracking-[.14em] text-[var(--blue)]">
             Corrected answer
           </p>
@@ -153,9 +174,7 @@ function AttemptFeedback({
                       >
                         {word.word}
                       </h3>
-                      <span className="text-sm font-black text-[var(--muted)]">
-                        {word.usageScore}/10
-                      </span>
+                      <ScoreBadge value={word.usageScore} />
                     </div>
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${resultStyles[result]}`}
@@ -172,34 +191,27 @@ function AttemptFeedback({
                       {word.feedbackAr}
                     </p>
                   )}
-                  <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-bold">
-                    <span className={word.used ? "text-[#81d7c2]" : "text-[#ffb0a2]"}>
-                      {word.used ? "Used" : "Not used"}
-                    </span>
-                    <span className="text-[#586781]">•</span>
-                    <span
-                      className={
-                        word.grammarCorrect ? "text-[#81d7c2]" : "text-[#f4d784]"
-                      }
-                    >
-                      Grammar
-                    </span>
-                    <span className="text-[#586781]">•</span>
-                    <span
-                      className={
-                        word.naturalUsage ? "text-[#81d7c2]" : "text-[#f4d784]"
-                      }
-                    >
-                      Naturalness
-                    </span>
-                    <span className="text-[#586781]">•</span>
-                    <span
-                      className={
-                        word.collocationCorrect ? "text-[#81d7c2]" : "text-[#f4d784]"
-                      }
-                    >
-                      Collocation
-                    </span>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <BooleanBadge
+                      label="Used"
+                      value={word.used}
+                    />
+                    <BooleanBadge
+                      label="Meaning"
+                      value={word.meaningCorrect}
+                    />
+                    <BooleanBadge
+                      label="Grammar"
+                      value={word.grammarCorrect}
+                    />
+                    <BooleanBadge
+                      label="Natural"
+                      value={word.naturalUsage}
+                    />
+                    <BooleanBadge
+                      label="Collocation"
+                      value={word.collocationCorrect}
+                    />
                   </div>
                 </article>
               );
@@ -221,11 +233,11 @@ function AttemptFeedback({
                       {error.type.replace("_", " ")}
                     </span>
                     <span
-                      className={
+                      className={`rounded-full border px-2.5 py-1 text-xs font-black capitalize ${
                         error.severity === "major"
-                          ? "text-xs font-black text-[#ffb0a2]"
-                          : "text-xs font-black text-[#f4d784]"
-                      }
+                          ? "border-[#70464d] bg-[var(--danger-soft)] text-[#ffb0a2]"
+                          : "border-[#66542e] bg-[#30291b] text-[#f4d784]"
+                      }`}
                     >
                       {error.severity}
                     </span>

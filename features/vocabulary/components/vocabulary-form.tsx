@@ -17,6 +17,7 @@ import {
 } from "@/features/vocabulary/dictionary-actions";
 import type { GenerateDictionaryState } from "@/features/vocabulary/dictionary-actions";
 import { GrammarDetails } from "@/features/vocabulary/components/grammar-details";
+import { WordIdentity } from "@/features/vocabulary/components/word-identity";
 import { WordSuggestion } from "@/features/vocabulary/dictionary-schema";
 import { languageDetails } from "@/features/learning/language-config";
 import {
@@ -46,12 +47,16 @@ function FormShell({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-end bg-[#02060c]/76 backdrop-blur-sm sm:p-4"
+      className="fixed pointer-events-auto inset-0 z-50 flex items-end justify-end bg-[#02060c]/76 backdrop-blur-sm sm:p-4"
       role="dialog"
       aria-modal="true"
+      onClick={onClose}
       aria-label={title}
     >
-      <div className="h-[94vh] w-full overflow-y-auto rounded-t-[1.6rem] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-2xl sm:h-full sm:max-w-2xl sm:rounded-[1.6rem] sm:p-7">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="h-[94vh] w-full overflow-y-auto rounded-t-[1.6rem] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-2xl sm:h-full sm:max-w-2xl sm:rounded-[1.6rem] sm:p-7"
+      >
         <div className="mb-7 flex items-center justify-between">
           <div>
             <p className="eyebrow">Vocabulary</p>
@@ -104,13 +109,12 @@ function WordOption({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <strong
-              className="text-lg text-[var(--ink)]"
-              lang={language}
-            >
-              {suggestion.word}
-            </strong>
-            <span className="chip capitalize">{suggestion.type}</span>
+            <WordIdentity
+              word={suggestion.word}
+              type={suggestion.type}
+              grammar={suggestion.grammar}
+              language={language}
+            />
             {alreadyAdded && (
               <span className="inline-flex items-center gap-1 rounded-full border border-[#285149] bg-[#173b37] px-2 py-0.5 text-xs font-bold text-[#9be5d3]">
                 <Check size={12} />
