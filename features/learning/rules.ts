@@ -77,7 +77,8 @@ export function isDue(word: Vocabulary, now = new Date()): boolean {
 }
 
 function followsActivationPath(word: Vocabulary): boolean {
-  return word.target === "active" && word.state === "recall";
+  return word.target === "active" &&
+    (word.state === "recall" || word.state === "active");
 }
 
 export function isActivationReady(word: Vocabulary, now = new Date()): boolean {
