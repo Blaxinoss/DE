@@ -15,18 +15,15 @@ export default async function HistoryPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const requestedPage = Number.parseInt((await searchParams).page ?? "1", 10);
+
   const page = Number.isFinite(requestedPage) ? Math.max(requestedPage, 1) : 1;
   const client = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await client.auth.getUser();
-
-  if (!user) redirect("/");
 
   const { data: preferences } = await client
     .from("user_preferences")
     .select("learning_language")
     .maybeSingle();
+
   const language: LearningLanguage =
     preferences?.learning_language === "en" ? "en" : "de";
   const { attempts, total } = await getActivationHistory(client, language, page);
