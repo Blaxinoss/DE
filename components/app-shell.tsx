@@ -10,14 +10,12 @@ import {
   CircleHelp,
   History,
   LayoutDashboard,
-  Languages,
   LogOut,
   Repeat2,
 } from "lucide-react";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { signOut } from "@/features/auth/actions";
 import { OnboardingGuide } from "@/features/guide/components/Guide";
-import { languageDetails } from "@/features/learning/language-config";
-import { LearningLanguage } from "@/features/learning/types";
 import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
 
 const nav = [
@@ -51,59 +49,10 @@ function Brand() {
   );
 }
 
-function LanguageSwitcher({
-  language,
-  busy,
-  compact = false,
-  onChange,
-}: {
-  language: LearningLanguage;
-  busy: boolean;
-  compact?: boolean;
-  onChange(language: LearningLanguage): void;
-}) {
-  const nextLanguage: LearningLanguage = language === "de" ? "en" : "de";
-  const current = languageDetails[language];
-  const next = languageDetails[nextLanguage];
-
-  return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => onChange(nextLanguage)}
-      className={`flex items-center rounded-xl border border-[var(--blue-line)] bg-[var(--blue-soft)] text-left text-[var(--blue)] transition hover:border-[var(--blue)] hover:text-[var(--ink)] ${
-        compact ? "min-h-10 gap-2 px-3" : "w-full gap-3 px-3.5 py-3"
-      }`}
-      aria-label={`Switch learning language to ${next.name}`}
-      title={`Switch to ${next.name}`}
-    >
-      <Languages size={18} />
-      {compact ? (
-        <span className="text-xs font-black uppercase">{current.code}</span>
-      ) : (
-        <span className="min-w-0">
-          <span className="block text-[10px] font-black uppercase tracking-[.14em] text-[var(--muted)]">
-            Learning
-          </span>
-          <span className="block text-sm font-extrabold text-[var(--ink)]">
-            {busy ? "Switching…" : current.nativeName}
-          </span>
-        </span>
-      )}
-      {!compact && (
-        <span className="ml-auto text-xs font-black uppercase text-[var(--blue)]">
-          {next.code}
-        </span>
-      )}
-    </button>
-  );
-}
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [guideRequest, setGuideRequest] = useState(0);
-  const { databaseConnected, language, setLearningLanguage, switchingLanguage } =
-    useVocabulary();
+  const { databaseConnected } = useVocabulary();
   const isAuthPage = ["/", "/signup", "/forgot-password", "/reset-password"].includes(
     pathname,
   );
@@ -120,11 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="mt-8 px-1">
-            <LanguageSwitcher
-              language={language}
-              busy={switchingLanguage}
-              onChange={(next) => void setLearningLanguage(next)}
-            />
+            <LanguageSwitcher />
           </div>
 
           <p className="mb-2 mt-7 px-3 text-[10px] font-black uppercase tracking-[.18em] text-[#68778b]">
@@ -167,7 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setGuideRequest((request) => request + 1)}
           >
             <CircleHelp size={18} />
-            How Wortweg works
+            Help
           </button>
 
           <form
@@ -206,12 +151,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="flex items-center justify-between border-b border-[var(--line)] bg-[#0d141e]/80 px-4 py-3 backdrop-blur md:hidden">
             <Brand />
             <div className="flex items-center gap-1.5">
-              <LanguageSwitcher
-                language={language}
-                busy={switchingLanguage}
-                compact
-                onChange={(next) => void setLearningLanguage(next)}
-              />
+              <LanguageSwitcher compact />
               <button
                 type="button"
                 className="icon-button"

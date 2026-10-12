@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { ArrowRight, CalendarClock, ExternalLink } from "lucide-react";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { StateBadge } from "@/components/ui";
 import type { VocabularyState } from "@/features/learning/types";
 
@@ -15,8 +16,9 @@ type GuideScreenshot = {
 type GuidePageDefinition = {
   id:
     | "journey"
+    | "language"
     | "collect"
-    | "states"
+    | "vocabulary"
     | "schedule"
     | "review"
     | "activate"
@@ -43,8 +45,18 @@ export const guidePages = [
     screenshot: null,
   },
   {
+    id: "language",
+    eyebrow: "1 · Language",
+    title: "Learn German or English",
+    description: "Use the same learning path for either language. Switch any time.",
+    points: [],
+    note: "Each language keeps its own vocabulary and schedule.",
+    tone: "blue",
+    screenshot: null,
+  },
+  {
     id: "collect",
-    eyebrow: "1 · Add",
+    eyebrow: "2 · Add",
     title: "Choose the meaning you want",
     description:
       "Search, choose the right sense, then set Active use or Passive recognition.",
@@ -59,16 +71,16 @@ export const guidePages = [
     },
   },
   {
-    id: "states",
-    eyebrow: "2 · States",
-    title: "A state shows what you can do",
+    id: "vocabulary",
+    eyebrow: "3 · Vocabulary",
+    title: "Your words stay in one place",
     description:
-      "New and Learning build memory. Recall proves retrieval. Active proves use.",
+      "Search your bank or open a card when you need its grammar and example.",
     points: [
-      "Review moves words toward Recall",
-      "Activate moves Recall words toward Active",
+      "Edit or remove any saved word",
+      "Collapsed cards keep a large bank easy to scan",
     ],
-    note: "A failed answer can move a word back one state.",
+    note: "State and target decide whether a word appears in Review or Activate.",
     tone: "amber",
     screenshot: {
       src: "/guide/vocabulary-bank.webp",
@@ -79,7 +91,7 @@ export const guidePages = [
   },
   {
     id: "schedule",
-    eyebrow: "3 · Timing",
+    eyebrow: "4 · Timing",
     title: "Practice only when a word is due",
     description: "Each state has a base delay; your answer adjusts the next date.",
     points: ["Strong answers wait longer; help brings the word back sooner"],
@@ -89,7 +101,7 @@ export const guidePages = [
   },
   {
     id: "review",
-    eyebrow: "4 · Review",
+    eyebrow: "5 · Review",
     title: "Remember before revealing",
     description: "Think of the answer, reveal it, then grade how recall really felt.",
     points: ["Instant · Slow · Hint · Wrong"],
@@ -104,7 +116,7 @@ export const guidePages = [
   },
   {
     id: "activate",
-    eyebrow: "5 · Activate",
+    eyebrow: "6 · Activate",
     title: "Use the words yourself",
     description:
       "Write with due Recall words. AI checks the sentence and each target word.",
@@ -123,7 +135,7 @@ export const guidePages = [
   },
   {
     id: "history",
-    eyebrow: "6 · History",
+    eyebrow: "7 · History",
     title: "Revisit useful corrections",
     description:
       "Open any saved Activation attempt to see your answer and its feedback again.",
@@ -139,7 +151,7 @@ export const guidePages = [
   },
   {
     id: "dashboard",
-    eyebrow: "7 · Today",
+    eyebrow: "8 · Today",
     title: "Do the next useful action",
     description: "The dashboard sends you to Review first, then Activate when ready.",
     points: ["No task is due? You are done for now"],
@@ -297,6 +309,17 @@ function ScreenshotVisual({ screenshot }: { screenshot: GuideScreenshot }) {
 }
 
 export function GuideVisual({ page }: { page: GuidePageDefinition }) {
+  if (page.id === "language") {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-black/10 p-5">
+        <p className="mb-3 text-center text-xs font-bold text-current/70">
+          Try the real switch
+        </p>
+        <LanguageSwitcher />
+      </div>
+    );
+  }
+
   if (page.screenshot) {
     return <ScreenshotVisual screenshot={page.screenshot} />;
   }
