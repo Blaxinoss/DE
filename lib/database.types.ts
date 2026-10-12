@@ -279,16 +279,19 @@ export type Database = {
       user_preferences: {
         Row: {
           learning_language: string
+          show_guide: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
           learning_language?: string
+          show_guide?: boolean
           updated_at?: string
           user_id?: string
         }
         Update: {
           learning_language?: string
+          show_guide?: boolean
           updated_at?: string
           user_id?: string
         }

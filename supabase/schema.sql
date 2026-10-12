@@ -1,5 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE SCHEMA IF NOT EXISTS extensions;
+
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
 
 -- ============================================================================
@@ -67,12 +69,15 @@ CREATE TABLE IF NOT EXISTS public.global_lexicon (
 );
 
 ALTER TABLE public.vocabulary
-ADD COLUMN IF NOT EXISTS lexicon_id UUID REFERENCES public.global_lexicon(id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS lexicon_id UUID REFERENCES public.global_lexicon (id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS public.user_preferences (
-  user_id           UUID PRIMARY KEY DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
-  learning_language TEXT NOT NULL DEFAULT 'de' CHECK (learning_language IN ('de', 'en')),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    user_id UUID PRIMARY KEY DEFAULT auth.uid () REFERENCES auth.users (id) ON DELETE CASCADE,
+    learning_language TEXT NOT NULL DEFAULT 'de' CHECK (
+        learning_language IN ('de', 'en')
+    ),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    show_guide BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE IF NOT EXISTS public.ai_daily_usage (
@@ -102,20 +107,20 @@ CREATE TABLE IF NOT EXISTS public.activation_attempts (
 );
 
 CREATE TABLE IF NOT EXISTS public.activation_word_results (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  attempt_id UUID NOT NULL REFERENCES public.activation_attempts(id) ON DELETE CASCADE,
-  review_id UUID UNIQUE REFERENCES public.reviews(id) ON DELETE SET NULL,
-  vocabulary_id UUID REFERENCES public.vocabulary(id) ON DELETE SET NULL,
-  word_snapshot TEXT NOT NULL,
-  used BOOLEAN NOT NULL,
-  meaning_correct BOOLEAN NOT NULL,
-  grammar_correct BOOLEAN NOT NULL,
-  natural_usage BOOLEAN NOT NULL,
-  collocation_correct BOOLEAN NOT NULL,
-  usage_score SMALLINT NOT NULL CHECK (usage_score BETWEEN 0 AND 10),
-  feedback_ar TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (attempt_id, vocabulary_id)
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+    attempt_id UUID NOT NULL REFERENCES public.activation_attempts (id) ON DELETE CASCADE,
+    review_id UUID UNIQUE REFERENCES public.reviews (id) ON DELETE SET NULL,
+    vocabulary_id UUID REFERENCES public.vocabulary (id) ON DELETE SET NULL,
+    word_snapshot TEXT NOT NULL,
+    used BOOLEAN NOT NULL,
+    meaning_correct BOOLEAN NOT NULL,
+    grammar_correct BOOLEAN NOT NULL,
+    natural_usage BOOLEAN NOT NULL,
+    collocation_correct BOOLEAN NOT NULL,
+    usage_score SMALLINT NOT NULL CHECK (usage_score BETWEEN 0 AND 10),
+    feedback_ar TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (attempt_id, vocabulary_id)
 );
 
 -- ============================================================================
@@ -126,28 +131,48 @@ DROP INDEX IF EXISTS public.vocabulary_normalized_word_idx;
 
 CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_lexicon_idx ON public.vocabulary (user_id, lexicon_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_language_custom_word_idx ON public.vocabulary (user_id, language, LOWER(TRIM(word))) WHERE lexicon_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_language_custom_word_idx ON public.vocabulary (
+    user_id,
+    language,
+    LOWER(TRIM(word))
+)
+WHERE
+    lexicon_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS reviews_vocabulary_date_idx ON public.reviews (
     vocabulary_id,
     reviewed_at DESC
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS reviews_activation_attempt_vocabulary_idx ON public.reviews (activation_attempt_id, vocabulary_id) WHERE activation_attempt_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS reviews_activation_attempt_vocabulary_idx ON public.reviews (
+    activation_attempt_id,
+    vocabulary_id
+)
+WHERE
+    activation_attempt_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS vocabulary_user_created_idx ON public.vocabulary (user_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS vocabulary_next_review_idx ON public.vocabulary (user_id, language, next_review_at);
+CREATE INDEX IF NOT EXISTS vocabulary_next_review_idx ON public.vocabulary (
+    user_id,
+    language,
+    next_review_at
+);
 
 CREATE INDEX IF NOT EXISTS global_lexicon_language_word_idx ON public.global_lexicon (language, normalized_word);
 
-CREATE INDEX IF NOT EXISTS global_lexicon_word_trgm_idx ON public.global_lexicon USING GIN (normalized_word extensions.gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS global_lexicon_word_trgm_idx ON public.global_lexicon USING GIN (
+    normalized_word extensions.gin_trgm_ops
+);
 
 CREATE INDEX IF NOT EXISTS activation_attempts_user_created_idx ON public.activation_attempts (user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS activation_word_results_attempt_idx ON public.activation_word_results (attempt_id);
 
-CREATE INDEX IF NOT EXISTS activation_word_results_vocabulary_created_idx ON public.activation_word_results (vocabulary_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS activation_word_results_vocabulary_created_idx ON public.activation_word_results (
+    vocabulary_id,
+    created_at DESC
+);
 
 -- ============================================================================
 -- Triggers and Functions
@@ -536,7 +561,6 @@ BEGIN
 END;
 $$;
 
-
 CREATE OR REPLACE FUNCTION public.search_global_lexicon(
   p_language TEXT,
   p_query TEXT,
@@ -681,7 +705,11 @@ DELETE ON public.vocabulary TO authenticated;
 
 GRANT SELECT, INSERT ON public.reviews TO authenticated;
 
-GRANT SELECT, INSERT, UPDATE ON public.user_preferences TO authenticated;
+GRANT
+SELECT,
+INSERT
+,
+UPDATE ON public.user_preferences TO authenticated;
 
 REVOKE ALL ON public.ai_daily_usage FROM anon, authenticated;
 
@@ -689,31 +717,75 @@ GRANT SELECT ON public.global_lexicon TO authenticated;
 
 GRANT SELECT, INSERT ON public.activation_attempts TO authenticated;
 
-GRANT SELECT, INSERT ON public.activation_word_results TO authenticated;
+GRANT
+SELECT,
+INSERT
+    ON public.activation_word_results TO authenticated;
 
-REVOKE ALL ON FUNCTION public.record_learning_result(UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.record_learning_result (
+    UUID,
+    TEXT,
+    TEXT,
+    TIMESTAMPTZ,
+    TIMESTAMPTZ,
+    TEXT
+)
+FROM PUBLIC;
 
-REVOKE ALL ON FUNCTION public.consume_ai_quota(TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.consume_ai_quota (TEXT) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.consume_ai_quota(TEXT) TO authenticated;
+GRANT
+EXECUTE ON FUNCTION public.consume_ai_quota (TEXT) TO authenticated;
 
-GRANT EXECUTE ON FUNCTION public.record_learning_result(UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) TO authenticated;
+GRANT
+EXECUTE ON FUNCTION public.record_learning_result (
+    UUID,
+    TEXT,
+    TEXT,
+    TIMESTAMPTZ,
+    TIMESTAMPTZ,
+    TEXT
+) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.record_learning_result(UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.record_learning_result (
+    UUID,
+    TEXT,
+    TEXT,
+    TIMESTAMPTZ,
+    TIMESTAMPTZ,
+    TEXT,
+    UUID
+)
+FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.record_learning_result(UUID, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT, UUID) TO authenticated;
+GRANT
+EXECUTE ON FUNCTION public.record_learning_result (
+    UUID,
+    TEXT,
+    TEXT,
+    TIMESTAMPTZ,
+    TIMESTAMPTZ,
+    TEXT,
+    UUID
+) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.record_learning_results(JSONB) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.record_learning_results (JSONB)
+FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.record_learning_results(JSONB) TO authenticated;
+GRANT
+EXECUTE ON FUNCTION public.record_learning_results (JSONB) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.save_activation_history(JSONB, JSONB) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.save_activation_history (JSONB, JSONB)
+FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.save_activation_history(JSONB, JSONB) TO authenticated;
+GRANT
+EXECUTE ON FUNCTION public.save_activation_history (JSONB, JSONB) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.search_global_lexicon(TEXT, TEXT, INTEGER) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.search_global_lexicon (TEXT, TEXT, INTEGER)
+FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION public.search_global_lexicon(TEXT, TEXT, INTEGER) TO authenticated;
+GRANT
+EXECUTE ON FUNCTION public.search_global_lexicon (TEXT, TEXT, INTEGER) TO authenticated;
 
 -- =========================================================
 -- Vocabulary Policies
@@ -793,52 +865,92 @@ WITH
 -- =========================================================
 
 CREATE POLICY "preferences_select" ON public.user_preferences FOR
-SELECT TO authenticated USING (user_id = (SELECT auth.uid()));
+SELECT TO authenticated USING (
+        user_id = (
+            SELECT auth.uid ()
+        )
+    );
 
 CREATE POLICY "preferences_insert" ON public.user_preferences FOR
-INSERT TO authenticated WITH CHECK (user_id = (SELECT auth.uid()));
+INSERT
+    TO authenticated
+WITH
+    CHECK (
+        user_id = (
+            SELECT auth.uid ()
+        )
+    );
 
 CREATE POLICY "preferences_update" ON public.user_preferences FOR
-UPDATE TO authenticated USING (user_id = (SELECT auth.uid()))
-WITH CHECK (user_id = (SELECT auth.uid()));
+UPDATE TO authenticated USING (
+    user_id = (
+        SELECT auth.uid ()
+    )
+)
+WITH
+    CHECK (
+        user_id = (
+            SELECT auth.uid ()
+        )
+    );
 
 CREATE POLICY "global_lexicon_select" ON public.global_lexicon FOR
 SELECT TO authenticated USING (TRUE);
 
 CREATE POLICY "activation_attempts_select" ON public.activation_attempts FOR
-SELECT TO authenticated USING (user_id = (SELECT auth.uid()));
+SELECT TO authenticated USING (
+        user_id = (
+            SELECT auth.uid ()
+        )
+    );
 
 CREATE POLICY "activation_attempts_insert" ON public.activation_attempts FOR
-INSERT TO authenticated WITH CHECK (user_id = (SELECT auth.uid()));
+INSERT
+    TO authenticated
+WITH
+    CHECK (
+        user_id = (
+            SELECT auth.uid ()
+        )
+    );
 
 CREATE POLICY "activation_word_results_select" ON public.activation_word_results FOR
 SELECT TO authenticated USING (
-  EXISTS (
-    SELECT 1
-    FROM public.activation_attempts AS attempt
-    WHERE
-      attempt.id = activation_word_results.attempt_id
-      AND attempt.user_id = (SELECT auth.uid())
-  )
-);
+        EXISTS (
+            SELECT 1
+            FROM public.activation_attempts AS attempt
+            WHERE
+                attempt.id = activation_word_results.attempt_id
+                AND attempt.user_id = (
+                    SELECT auth.uid ()
+                )
+        )
+    );
 
 CREATE POLICY "activation_word_results_insert" ON public.activation_word_results FOR
-INSERT TO authenticated WITH CHECK (
-  EXISTS (
-    SELECT 1
-    FROM public.activation_attempts AS attempt
-    WHERE
-      attempt.id = activation_word_results.attempt_id
-      AND attempt.user_id = (SELECT auth.uid())
-  )
-  AND EXISTS (
-    SELECT 1
-    FROM public.reviews AS review
-    JOIN public.vocabulary AS vocabulary ON vocabulary.id = review.vocabulary_id
-    WHERE
-      review.id = activation_word_results.review_id
-      AND review.vocabulary_id = activation_word_results.vocabulary_id
-      AND review.review_type = 'activate'
-      AND vocabulary.user_id = (SELECT auth.uid())
-  )
-);
+INSERT
+    TO authenticated
+WITH
+    CHECK (
+        EXISTS (
+            SELECT 1
+            FROM public.activation_attempts AS attempt
+            WHERE
+                attempt.id = activation_word_results.attempt_id
+                AND attempt.user_id = (
+                    SELECT auth.uid ()
+                )
+        )
+        AND EXISTS (
+            SELECT 1
+            FROM public.reviews AS review
+                JOIN public.vocabulary AS vocabulary ON vocabulary.id = review.vocabulary_id
+            WHERE
+                review.id = activation_word_results.review_id
+                AND review.vocabulary_id = activation_word_results.vocabulary_id
+                AND review.review_type = 'activate'
+                AND vocabulary.user_id = (
+                    SELECT auth.uid ()
+                )
+        )
+    );

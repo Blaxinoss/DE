@@ -104,15 +104,21 @@ function toVocabularyRow(
 }
 
 export const vocabularyRepository = {
-  async getLearningLanguage(): Promise<LearningLanguage> {
+  async getCoursePreferences(): Promise<{
+    language: LearningLanguage;
+    showGuide: boolean;
+  }> {
     const client = getVocabularyDatabase();
     const { data, error } = await client
       .from("user_preferences")
-      .select("learning_language")
+      .select("learning_language, show_guide")
       .maybeSingle();
 
     if (error) throw error;
-    return data?.learning_language === "en" ? "en" : "de";
+    return {
+      language: data?.learning_language === "en" ? "en" : "de",
+      showGuide: data?.show_guide ?? true,
+    };
   },
 
   async setLearningLanguage(language: LearningLanguage): Promise<void> {
@@ -139,12 +145,13 @@ export const vocabularyRepository = {
 
   async loadCourseData(languageOverride?: LearningLanguage): Promise<{
     language: LearningLanguage;
+    showGuide: boolean;
     words: Vocabulary[];
     reviews: Review[];
   }> {
     const client = getVocabularyDatabase();
-    const language =
-      languageOverride ?? (await vocabularyRepository.getLearningLanguage());
+    const preferences = await vocabularyRepository.getCoursePreferences();
+    const language = languageOverride ?? preferences.language;
     const [wordsResult, reviewsResult] = await Promise.all([
       client
         .from("vocabulary")
@@ -162,6 +169,7 @@ export const vocabularyRepository = {
 
     return {
       language,
+      showGuide: preferences.showGuide,
       words,
       reviews: (reviewsResult.data as ReviewRow[])
         .filter((review) => wordIds.has(review.vocabulary_id))

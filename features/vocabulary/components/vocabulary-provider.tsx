@@ -25,12 +25,14 @@ import {
 
 type ContextValue = {
   language: LearningLanguage;
+  showGuide: boolean;
   switchingLanguage: boolean;
   words: Vocabulary[];
   reviews: Review[];
   loading: boolean;
   error: string | null;
   databaseConnected: boolean;
+  hideGuide(): void;
   setLearningLanguage(language: LearningLanguage): Promise<void>;
   createWord(draft: VocabularyDraft): Promise<Vocabulary>;
   createWords(drafts: VocabularyDraft[]): Promise<Vocabulary[]>;
@@ -58,17 +60,22 @@ const VocabularyContext = createContext<ContextValue | null>(null);
 
 export function VocabularyProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthPage = pathname === "/" || pathname === "/signup";
+  const isAuthPage = ["/", "/signup", "/forgot-password", "/reset-password"].includes(
+    pathname,
+  );
   const [words, setWords] = useState<Vocabulary[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [language, setLanguage] = useState<LearningLanguage>("de");
+  const [showGuide, setShowGuide] = useState(false);
   const [switchingLanguage, setSwitchingLanguage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hideGuide = useCallback(() => setShowGuide(false), []);
   const load = useCallback(async () => {
     try {
       const data = await vocabularyRepository.loadCourseData();
       setLanguage(data.language);
+      setShowGuide(data.showGuide);
       setWords(data.words);
       setReviews(data.reviews);
       setError(null);
@@ -96,6 +103,7 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       await vocabularyRepository.setLearningLanguage(nextLanguage);
       const data = await vocabularyRepository.loadCourseData(nextLanguage);
       setLanguage(data.language);
+      setShowGuide(data.showGuide);
       setWords(data.words);
       setReviews(data.reviews);
       setError(null);
@@ -212,12 +220,14 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
   const value = useMemo(
     () => ({
       language,
+      showGuide,
       switchingLanguage,
       words,
       reviews,
       loading,
       error,
       databaseConnected: isSupabaseConfigured,
+      hideGuide,
       setLearningLanguage: changeLearningLanguage,
       createWord,
       createWords,
@@ -228,7 +238,7 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       applyLearningResults,
       importWords,
     }),
-    [language, switchingLanguage, words, reviews, loading, error],
+    [language, showGuide, switchingLanguage, words, reviews, loading, error],
   );
   return (
     <VocabularyContext.Provider value={value}>{children}</VocabularyContext.Provider>
