@@ -1,19 +1,35 @@
-const preferredLabels: Record<string, string> = {
-  article: "Article",
-  singular: "Singular",
-  plural: "Plural",
-  present: "Präsens",
-  past: "Präteritum",
-  auxiliary: "Auxiliary",
-  partizipII: "Partizip II",
-  reflexive: "Reflexive",
-  preposition: "Preposition",
-  objectCase: "Case",
-  synonyms: "Synonyms",
+const preferredLabels: Record<string, Record<string, string>> = {
+  en: {
+    article: "Article",
+    singular: "Singular",
+    plural: "Plural",
+    present: "Present",
+    past: "Past",
+    auxiliary: "Auxiliary",
+    partizipII: "Past Participle",
+    reflexive: "Reflexive",
+    preposition: "Preposition",
+    objectCase: "Case",
+    synonyms: "Synonyms",
+  },
+  de: {
+    article: "Article",
+    singular: "Singular",
+    plural: "Plural",
+    present: "Präsens",
+    past: "Präteritum",
+    auxiliary: "Auxiliary",
+    partizipII: "Partizip II",
+    reflexive: "Reflexive",
+    preposition: "Preposition",
+    objectCase: "Case",
+    synonyms: "Synonyms",
+  },
 };
 
-function labelFor(key: string): string {
-  if (preferredLabels[key]) return preferredLabels[key];
+function labelFor(key: string, languageInput: string): string {
+  if (preferredLabels[languageInput][key]) return preferredLabels[languageInput][key];
+
   const spaced = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
@@ -69,7 +85,7 @@ export function GrammarDetails({
           className={`rounded-xl border px-3 py-2 text-left ${toneFor(key)}`}
         >
           <dt className="text-[11px] font-extrabold uppercase tracking-[.1em] text-[var(--muted)]">
-            {labelFor(key)}
+            {labelFor(key, language)}
           </dt>
           <dd
             className="mt-0.5 text-sm font-bold text-[var(--ink)]"
