@@ -186,6 +186,10 @@ export type Database = {
       }
       global_lexicon: {
         Row: {
+          audio_config_version: number | null
+          audio_generated_at: string | null
+          audio_path: string | null
+          audio_source_text: string | null
           chunk: string | null
           commonness: string | null
           created_at: string
@@ -204,6 +208,10 @@ export type Database = {
           word: string
         }
         Insert: {
+          audio_config_version?: number | null
+          audio_generated_at?: string | null
+          audio_path?: string | null
+          audio_source_text?: string | null
           chunk?: string | null
           commonness?: string | null
           created_at?: string
@@ -222,6 +230,10 @@ export type Database = {
           word: string
         }
         Update: {
+          audio_config_version?: number | null
+          audio_generated_at?: string | null
+          audio_path?: string | null
+          audio_source_text?: string | null
           chunk?: string | null
           commonness?: string | null
           created_at?: string

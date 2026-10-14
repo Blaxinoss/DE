@@ -19,7 +19,10 @@ import {
   Vocabulary,
   VocabularyState,
   vocabularyStates,
+  WordType,
+  wordTypes,
 } from "@/features/learning/types";
+import { PronunciationButton } from "@/features/tts/components/pronunciation-button";
 
 export default function VocabularyPage() {
   const { language, words, loading, createWords, updateWord, deleteWord } =
@@ -28,6 +31,7 @@ export default function VocabularyPage() {
   const [query, setQuery] = useState("");
   const [target, setTarget] = useState<Target | "all">("all");
   const [state, setState] = useState<VocabularyState | "all">("all");
+  const [wordType, setWordType] = useState<"all" | WordType>("all");
   const [editing, setEditing] = useState<Vocabulary | "new" | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const existingLexiconIds = useMemo(
@@ -52,10 +56,27 @@ export default function VocabularyPage() {
             .toLocaleLowerCase()
             .includes(query.toLocaleLowerCase()) &&
           (target === "all" || word.target === target) &&
-          (state === "all" || word.state === state),
+          (state === "all" || word.state === state) &&
+          (wordType === "all" || word.type === wordType),
       ),
-    [words, query, target, state],
+    [words, query, target, state, wordType],
   );
+
+  // filter all the words and show only if the combination of the word+meaningAr+chunk
+  // exists in the query for exampel if the combination is "sich beschäftigen Ich beschäftige mich mit ينشغل ب"
+  // not only this but also when no condition is choosed then they are all === "all"
+  // so there is nothing unqiue they will all return true so it's the .includes && true && true && true
+  // this means I can get all out and just but nulls and say if target === null && state === null && wordType == null
+  // then just the query
+
+  // okay part two one of the filters is on then for example wordType === "all" is false some wordType is choosed
+  // then take the .includes and intersect it with also all words that haas word.type === wordType the one the user choose
+
+  // part 3 what if there is 2 filters ? then intersect the three of them the .includes() intersect first condition intersect second condotion
+  // that's why we actually using &&
+
+  // wanna prove it ? choose any filter and console log the .includes list alone and the filtered list wtih the filter you want alone
+  // and in your console
 
   if (loading) return <LoadingState />;
 
@@ -76,7 +97,7 @@ export default function VocabularyPage() {
         }
       />
 
-      <div className="surface mb-4 grid gap-3 p-4 md:grid-cols-[1fr_190px_210px]">
+      <div className="surface mb-4 grid gap-3 p-4 md:grid-cols-[1fr_190px_190px_190px]">
         <label className="relative">
           <span className="sr-only">Search vocabulary</span>
           <Search
@@ -90,6 +111,25 @@ export default function VocabularyPage() {
             placeholder={`Search ${details.name}, Arabic or chunk…`}
           />
         </label>
+
+        <select
+          className="field"
+          aria-label="Filter by word type"
+          value={wordType}
+          onChange={(event) => setWordType(event.target.value as WordType | "all")}
+        >
+          <option value="all">All Word Types</option>
+
+          {wordTypes.map((type) => (
+            <option
+              key={type}
+              value={type}
+            >
+              {type}
+            </option>
+          ))}
+        </select>
+
         <select
           className="field"
           aria-label="Filter by target"
@@ -123,7 +163,7 @@ export default function VocabularyPage() {
           Showing <span className="text-[var(--ink)]">{shown.length}</span> of{" "}
           {words.length} words
         </p>
-        {(query || target !== "all" || state !== "all") && (
+        {(query || target !== "all" || state !== "all" || wordType !== "all") && (
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--blue)] transition hover:bg-[var(--blue-soft)]"
@@ -131,6 +171,7 @@ export default function VocabularyPage() {
               setQuery("");
               setTarget("all");
               setState("all");
+              setWordType("all");
             }}
           >
             <RotateCcw size={15} />
@@ -200,6 +241,13 @@ export default function VocabularyPage() {
                       {word.meaningAr}
                     </p>
                   </button>
+                  {word.lexiconId && (
+                    <PronunciationButton
+                      word={word}
+                      lexiconId={word.lexiconId}
+                      language={language}
+                    />
+                  )}
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       className="icon-button"

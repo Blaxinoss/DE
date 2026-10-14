@@ -93,7 +93,7 @@ export const activationErrorSchema = z.object({
   original: z.string(),
   correction: z.string(),
   explanationAr: z.string(),
-  targetWordIds: z.array(z.string().uuid()),
+  targetWordIds: z.array(z.uuid()),
 });
 
 export const activationAttemptResponseSchema = z.object({

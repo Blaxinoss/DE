@@ -60,11 +60,39 @@ CREATE TABLE IF NOT EXISTS public.global_lexicon (
   commonness TEXT CHECK (commonness IS NULL OR commonness IN ('very_common', 'common', 'less_common', 'rare')),
   chunk TEXT,
   example TEXT,
+  audio_path TEXT,
+  audio_source_text TEXT,
+  audio_config_version INTEGER,
+  audio_generated_at TIMESTAMPTZ,
   search_terms TEXT[] NOT NULL DEFAULT '{}',
   model TEXT NOT NULL,
   schema_version INTEGER NOT NULL DEFAULT 1 CHECK (schema_version > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT global_lexicon_audio_path_not_blank CHECK (
+    audio_path IS NULL OR CHAR_LENGTH(TRIM(audio_path)) > 0
+  ),
+  CONSTRAINT global_lexicon_audio_source_text_not_blank CHECK (
+    audio_source_text IS NULL OR CHAR_LENGTH(TRIM(audio_source_text)) > 0
+  ),
+  CONSTRAINT global_lexicon_audio_config_version_positive CHECK (
+    audio_config_version IS NULL OR audio_config_version > 0
+  ),
+  CONSTRAINT global_lexicon_audio_cache_complete CHECK (
+    (
+      audio_path IS NULL
+      AND audio_source_text IS NULL
+      AND audio_config_version IS NULL
+      AND audio_generated_at IS NULL
+    )
+    OR
+    (
+      audio_path IS NOT NULL
+      AND audio_source_text IS NOT NULL
+      AND audio_config_version IS NOT NULL
+      AND audio_generated_at IS NOT NULL
+    )
+  ),
   UNIQUE (language, sense_key)
 );
 
@@ -954,3 +982,24 @@ WITH
                 )
         )
     );
+
+-- Private cache for generated dictionary pronunciation files.
+INSERT INTO storage.buckets (
+  id,
+  name,
+  public,
+  file_size_limit,
+  allowed_mime_types
+)
+VALUES (
+  'lexicon-audio',
+  'lexicon-audio',
+  TRUE,
+  1048576,
+  ARRAY['audio/mpeg']
+)
+ON CONFLICT (id) DO UPDATE
+SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;

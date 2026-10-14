@@ -77,18 +77,18 @@ export function GrammarDetails({
 
   return (
     <dl
-      className={`flex flex-wrap gap-2 ${compact ? "mt-4 justify-center" : "mt-5 border-t border-[var(--line)] pt-4"}`}
+      className={`flex flex-wrap gap-2 ${compact ? "mt-4 justify-center" : "mt-5 border-t border-(--line) pt-4"}`}
     >
       {entries.map(([key, value]) => (
         <div
           key={key}
           className={`rounded-xl border px-3 py-2 text-left ${toneFor(key)}`}
         >
-          <dt className="text-[11px] font-extrabold uppercase tracking-[.1em] text-[var(--muted)]">
+          <dt className="text-[11px] font-extrabold uppercase tracking-widest text-(--muted)">
             {labelFor(key, language)}
           </dt>
           <dd
-            className="mt-0.5 text-sm font-bold text-[var(--ink)]"
+            className="mt-0.5 text-sm font-bold text-(--ink)"
             lang={language}
           >
             {value}

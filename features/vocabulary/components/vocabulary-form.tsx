@@ -94,8 +94,7 @@ function WordOption({
   const disabled = alreadyAdded || unavailable;
 
   return (
-    <button
-      type="button"
+    <div
       className={`w-full rounded-2xl border p-4 text-left transition ${
         disabled
           ? "cursor-not-allowed border-[var(--line)] bg-[var(--panel-soft)] opacity-60"
@@ -103,11 +102,14 @@ function WordOption({
             ? "border-[var(--lime)] bg-[var(--panel-muted)]"
             : "border-[var(--line)] bg-[var(--panel-soft)] hover:border-[var(--blue-strong)]"
       }`}
-      disabled={disabled}
-      onClick={onSelect}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
+          disabled={disabled}
+          onClick={onSelect}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <WordIdentity
               word={suggestion.word}
@@ -139,16 +141,22 @@ function WordOption({
           >
             {suggestion.meaningAr}
           </p>
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            className={`grid size-7 place-items-center rounded-full border ${
+              selected
+                ? "border-[var(--lime)] bg-[var(--lime)] text-[#10200c]"
+                : "border-[var(--line)] text-transparent"
+            }`}
+            disabled={disabled}
+            onClick={onSelect}
+            aria-label={selected ? "Remove selection" : "Select this meaning"}
+          >
+            <Check size={16} />
+          </button>
         </div>
-        <span
-          className={`grid size-7 shrink-0 place-items-center rounded-full border ${
-            selected
-              ? "border-[var(--lime)] bg-[var(--lime)] text-[#10200c]"
-              : "border-[var(--line)] text-transparent"
-          }`}
-        >
-          <Check size={16} />
-        </span>
       </div>
 
       {Object.keys(suggestion.grammar).length > 0 && (
@@ -175,7 +183,7 @@ function WordOption({
           {suggestion.example}
         </p>
       )}
-    </button>
+    </div>
   );
 }
 

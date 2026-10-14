@@ -59,6 +59,7 @@ export default function ReviewPage() {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [sessionDone, setSessionDone] = useState(0);
+  const totalTargetQueueWords = sessionDone + queue.length;
   const [busy, setBusy] = useState(false);
   if (loading) return <LoadingState />;
   const current = queue[index];
@@ -106,34 +107,34 @@ export default function ReviewPage() {
         />
       ) : (
         <section className="mx-auto max-w-3xl">
-          <div className="mb-4 flex items-center justify-between text-sm font-bold text-[var(--muted)]">
+          <div className="mb-4 flex items-center justify-between text-sm font-bold text-(--muted)">
             <span>
-              {index + 1} of {queue.length} due
+              {sessionDone + 1} of {totalTargetQueueWords} due
             </span>
             <span>{sessionDone} completed</span>
           </div>
-          <div className="mb-6 h-2 overflow-hidden rounded-full bg-[var(--line)]">
+          <div className="mb-6 h-2 overflow-hidden rounded-full bg-(--line)">
             <div
-              className="h-full rounded-full bg-[var(--blue-strong)]"
-              style={{ width: `${((index + 1) / queue.length) * 100}%` }}
+              className="h-full rounded-full bg-(--blue-strong)"
+              style={{ width: `${((sessionDone + 1) / totalTargetQueueWords) * 100}%` }}
             />
           </div>
-          <article className="surface min-h-[430px] overflow-hidden">
-            <div className="border-b border-[var(--line)] bg-[var(--panel-soft)] px-6 py-4 sm:px-9">
-              <span className="text-sm font-extrabold text-[var(--muted)]">
+          <article className="surface min-h-107.5 overflow-hidden">
+            <div className="border-b border-(--line) bg-(--panel-soft) px-6 py-4 sm:px-9">
+              <span className="text-sm font-extrabold text-(--muted)">
                 Arabic → {details.name}
               </span>
             </div>
-            <div className="flex min-h-[350px] flex-col items-center justify-center p-7 text-center sm:p-10">
+            <div className="flex min-h-87.5 flex-col items-center justify-center p-7 text-center sm:p-10">
               <div className="flex flex-wrap justify-center gap-2">
                 <StateBadge state={current.state} />
                 <TargetBadge target={current.target} />
               </div>
-              <p className="mt-7 text-sm font-bold text-[var(--muted)]">
+              <p className="mt-7 text-sm font-bold text-(--muted)">
                 How do you say this in {details.name}?
               </p>
               <h2
-                className="mt-3 max-w-xl text-3xl font-black leading-snug text-[var(--ink)]"
+                className="mt-3 max-w-xl text-3xl font-black leading-snug text-(--ink)"
                 dir="rtl"
                 lang="ar"
               >
@@ -149,7 +150,7 @@ export default function ReviewPage() {
                 </button>
               ) : (
                 <div className="mt-8 w-full">
-                  <div className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] p-6 text-white">
+                  <div className="rounded-2xl border border-(--line) bg-(--panel-muted) p-6 text-white">
                     {current.chunk ? (
                       <p
                         className="text-3xl font-black"
@@ -173,14 +174,14 @@ export default function ReviewPage() {
                     />
                     {current.example && (
                       <p
-                        className="mt-4 text-base leading-relaxed text-[var(--ink-soft)]"
+                        className="mt-4 text-base leading-relaxed text-(--ink-soft)"
                         lang={language}
                       >
                         {current.example}
                       </p>
                     )}
                   </div>
-                  <p className="mb-3 mt-7 text-sm font-bold text-[var(--muted)]">
+                  <p className="mb-3 mt-7 text-sm font-bold text-(--muted)">
                     How did recall feel?
                   </p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -189,12 +190,12 @@ export default function ReviewPage() {
                         key={option.result}
                         disabled={busy}
                         onClick={() => void grade(option.result)}
-                        className={`min-h-20 rounded-xl border bg-[var(--panel-soft)] p-3 text-left transition ${option.style}`}
+                        className={`min-h-20 rounded-xl border bg-(--panel-soft) p-3 text-left transition ${option.style}`}
                       >
-                        <span className="block text-sm font-black text-[var(--ink)]">
+                        <span className="block text-sm font-black text-(--ink)">
                           {option.label}
                         </span>
-                        <span className="mt-1 block text-xs text-[var(--muted)]">
+                        <span className="mt-1 block text-xs text-(--muted)">
                           {option.detail}
                         </span>
                       </button>
@@ -206,7 +207,7 @@ export default function ReviewPage() {
           </article>
           {revealed && (
             <button
-              className="mx-auto mt-4 flex items-center gap-2 text-sm font-bold text-[var(--muted)] transition hover:text-[var(--ink)]"
+              className="mx-auto mt-4 flex items-center gap-2 text-sm font-bold text-(--muted) transition hover:text-(--ink)"
               onClick={() => setRevealed(false)}
             >
               <RotateCcw size={15} />
