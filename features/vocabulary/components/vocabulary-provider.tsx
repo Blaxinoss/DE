@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { toast } from "sonner";
 import { nextState, scheduleNextReview } from "@/features/learning/rules";
 import { normalizeWord } from "@/features/vocabulary/import-export";
 import { vocabularyRepository } from "@/features/vocabulary/vocabulary-repository";
@@ -16,28 +17,35 @@ import { isSupabaseConfigured } from "@/lib/supabase/browser";
 import {
   LearningResult,
   LearningLanguage,
+  CERF,
   Review,
   ReviewType,
   Vocabulary,
   VocabularyDraft,
   VocabularyLearningUpdate,
 } from "@/features/learning/types";
+import { seedUserVocabulary } from "@/features/seedPack/action";
 
 type ContextValue = {
   language: LearningLanguage;
   showGuide: boolean;
   switchingLanguage: boolean;
+  showSeed: boolean;
+  seededLanguages: LearningLanguage[];
   words: Vocabulary[];
   reviews: Review[];
   loading: boolean;
   error: string | null;
   databaseConnected: boolean;
+  openSeed(): void;
+  closeSeed(): void;
   hideGuide(): void;
   setLearningLanguage(language: LearningLanguage): Promise<void>;
   createWord(draft: VocabularyDraft): Promise<Vocabulary>;
   createWords(drafts: VocabularyDraft[]): Promise<Vocabulary[]>;
   updateWord(id: string, draft: VocabularyDraft): Promise<Vocabulary>;
   deleteWord(id: string): Promise<void>;
+  seedVocabularyCERF(level: CERF): ReturnType<typeof seedUserVocabulary>;
   recordResult(
     id: string,
     result: LearningResult,
@@ -68,6 +76,8 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
   const [language, setLanguage] = useState<LearningLanguage>("de");
   const [showGuide, setShowGuide] = useState(false);
   const [switchingLanguage, setSwitchingLanguage] = useState(false);
+  const [showSeed, setShowSeed] = useState<boolean>(false);
+  const [seededLanguages, setSeededLanguages] = useState<LearningLanguage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hideGuide = useCallback(() => setShowGuide(false), []);
@@ -76,11 +86,18 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       const data = await vocabularyRepository.loadCourseData();
       setLanguage(data.language);
       setShowGuide(data.showGuide);
+      setSeededLanguages(data.seededLanguages);
       setWords(data.words);
       setReviews(data.reviews);
       setError(null);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load vocabulary.");
+      const message =
+        reason instanceof Error ? reason.message : "Could not load vocabulary.";
+      setError(message);
+      toast.error("Could not load your learning data", {
+        id: "course-load-error",
+        description: message,
+      });
     } finally {
       setLoading(false);
     }
@@ -105,19 +122,49 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       setLanguage(data.language);
       setShowGuide(data.showGuide);
       setWords(data.words);
+      setSeededLanguages(data.seededLanguages);
       setReviews(data.reviews);
       setError(null);
+      toast.success(`${nextLanguage === "de" ? "German" : "English"} course ready`);
     } catch (reason) {
-      setError(
+      const message =
         reason instanceof Error
           ? reason.message
-          : "Could not change the learning language.",
-      );
+          : "Could not change the learning language.";
+      setError(message);
+      toast.error("Could not switch language", { description: message });
     } finally {
       setLoading(false);
       setSwitchingLanguage(false);
     }
   };
+
+  const openSeed = useCallback(() => setShowSeed(true), []);
+  const closeSeed = useCallback(() => setShowSeed(false), []);
+
+  const seedVocabularyCERF = async (level: CERF) => {
+    const result = await seedUserVocabulary(level, language);
+
+    if (!result.ok) {
+      toast.error("Could not add the starter pack", {
+        description: result.error,
+      });
+      return result;
+    }
+
+    await load();
+    closeSeed();
+    if (result.alreadySeeded) {
+      toast.info("This language already has a starter pack");
+    } else {
+      toast.success("Starter pack added", {
+        description: `${result.insertedCount} ${language === "de" ? "German" : "English"} words are ready to learn.`,
+      });
+    }
+
+    return result;
+  };
+
   const createWords = async (drafts: VocabularyDraft[]) => {
     const createdWords = await vocabularyRepository.createWords(drafts, language);
     setWords((all) => [...createdWords, ...all]);
@@ -233,12 +280,27 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       createWords,
       updateWord,
       deleteWord,
+      seedVocabularyCERF,
+      showSeed,
+      seededLanguages,
+      openSeed,
+      closeSeed,
       recordResult,
       recordResults,
       applyLearningResults,
       importWords,
     }),
-    [language, showGuide, switchingLanguage, words, reviews, loading, error],
+    [
+      language,
+      showGuide,
+      switchingLanguage,
+      showSeed,
+      seededLanguages,
+      words,
+      reviews,
+      loading,
+      error,
+    ],
   );
   return (
     <VocabularyContext.Provider value={value}>{children}</VocabularyContext.Provider>

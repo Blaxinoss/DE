@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { toast } from "sonner";
 import { dismissGuide } from "@/features/guide/actions";
 import {
   GuideVisual,
@@ -28,13 +29,21 @@ function Dots({ currentPage }: { currentPage: number }) {
   );
 }
 
-export function OnboardingGuide({ openRequest = 0 }: { openRequest?: number }) {
+type OnboardingGuideProps = {
+  openRequest?: number;
+  onAutomaticFinish?(): void;
+};
+
+export function OnboardingGuide({
+  openRequest = 0,
+  onAutomaticFinish,
+}: OnboardingGuideProps) {
   const { showGuide, hideGuide } = useVocabulary();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openedManually = useRef(false);
   const openedAutomatically = useRef(false);
+  const openMode = useRef<"automatic" | "manual" | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const [message, setMessage] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
 
   const page = guidePages[currentPage];
@@ -56,14 +65,15 @@ export function OnboardingGuide({ openRequest = 0 }: { openRequest?: number }) {
     }
 
     openedAutomatically.current = true;
+    openMode.current = "automatic";
     openGuide();
   }, [showGuide]);
 
   useEffect(() => {
     if (openRequest <= 0) return;
     openedManually.current = true;
+    openMode.current = "manual";
     setCurrentPage(0);
-    setMessage(null);
     openGuide();
   }, [openRequest]);
 
@@ -76,21 +86,24 @@ export function OnboardingGuide({ openRequest = 0 }: { openRequest?: number }) {
   };
 
   const dismissPermanently = () => {
-    setMessage(null);
-
     if (!showGuide) {
       closeGuide();
       return;
     }
+
+    const continueOnboarding = openMode.current === "automatic";
 
     startSaving(async () => {
       const result = await dismissGuide();
       if (result.ok) {
         hideGuide();
         closeGuide();
+        if (continueOnboarding) onAutomaticFinish?.();
         return;
       }
-      setMessage(result.error);
+      toast.error("Could not save your guide preference", {
+        description: result.error,
+      });
     });
   };
 
@@ -157,15 +170,6 @@ export function OnboardingGuide({ openRequest = 0 }: { openRequest?: number }) {
             <div className="mt-5 rounded-xl border border-[var(--blue-line)] bg-[var(--blue-soft)] p-3 text-sm leading-6 text-[var(--ink-soft)]">
               {page.note}
             </div>
-
-            {message && (
-              <p
-                className="mt-4 rounded-xl border border-[#70464d] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]"
-                role="alert"
-              >
-                {message}
-              </p>
-            )}
 
             <div className="mt-auto pt-7">
               <Dots currentPage={currentPage} />

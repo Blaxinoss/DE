@@ -15,6 +15,8 @@
   --blue-line: #344a70;
   --blue-soft: #192741;
   --lime: #b9df72;
+  --lime-line: #40552d;
+  --lime-soft: #1b281b;
   --teal: #70c7b4;
   --amber: #e3c378;
   --danger: #ef938a;
@@ -99,4 +101,65 @@ button:disabled {
   body {
     padding-bottom: 5.5rem;
   }
+}
+
+.wortweg-toast {
+  border: 1px solid var(--line) !important;
+  border-radius: 1rem !important;
+  background: #121a25 !important;
+  color: var(--ink) !important;
+  box-shadow: 0 18px 48px rgba(1, 5, 12, 0.42) !important;
+  padding: 0.9rem 1rem !important;
+}
+
+.wortweg-toast-title {
+  color: var(--ink) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.wortweg-toast-description {
+  color: var(--muted) !important;
+  line-height: 1.45 !important;
+}
+
+.wortweg-toast-success {
+  border-color: var(--lime-line) !important;
+  background: #17231a !important;
+}
+
+.wortweg-toast-error {
+  border-color: #70464d !important;
+  background: var(--danger-soft) !important;
+}
+
+.wortweg-toast-info {
+  border-color: var(--blue-line) !important;
+  background: var(--blue-soft) !important;
+}
+
+.wortweg-toast-warning {
+  border-color: #6a5731 !important;
+  background: #2d271a !important;
+}
+
+.wortweg-toast-close {
+  border: 1px solid var(--line) !important;
+  background: var(--panel-soft) !important;
+  color: var(--ink-soft) !important;
+}
+
+.wortweg-toast-action {
+  border-radius: 0.65rem !important;
+  background: var(--danger) !important;
+  color: #241114 !important;
+  font-weight: 800 !important;
+}
+
+.wortweg-toast-cancel {
+  border: 1px solid var(--line) !important;
+  border-radius: 0.65rem !important;
+  background: var(--panel-soft) !important;
+  color: var(--ink-soft) !important;
+  font-weight: 800 !important;
 }

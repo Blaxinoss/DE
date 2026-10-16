@@ -14,7 +14,7 @@ import { vocabularyStates } from "@/features/learning/types";
 import { useCurrentTime } from "@/hooks/use-current-time";
 
 export default function Dashboard() {
-  const { language, words, loading, error } = useVocabulary();
+  const { language, words, loading } = useVocabulary();
   const details = languageDetails[language];
   const now = useCurrentTime();
 
@@ -34,7 +34,6 @@ export default function Dashboard() {
           title={`Start your first ${details.name} word`}
           description={`Build a small, useful ${details.name} vocabulary bank first. Wortweg will handle the review path from there.`}
         />
-        {error && <ErrorBanner message={error} />}
         <section className="surface overflow-hidden">
           <div className="border-b border-[var(--line)] p-6 sm:p-8">
             <p className="eyebrow">A simple first session</p>
@@ -104,7 +103,6 @@ export default function Dashboard() {
         title={language === "de" ? "Guten Morgen" : "Good morning"}
         description="One useful next step, then you are done for now."
       />
-      {error && <ErrorBanner message={error} />}
 
       <section className="grid gap-4 lg:grid-cols-[1.35fr_.65fr]">
         <div className="surface overflow-hidden p-6 sm:p-8">
@@ -200,16 +198,5 @@ export default function Dashboard() {
         </div>
       </section>
     </>
-  );
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <div
-      className="mb-6 rounded-xl border border-[#623b44] bg-[var(--danger-soft)] p-4 font-semibold text-[var(--danger)]"
-      role="alert"
-    >
-      {message}
-    </div>
   );
 }

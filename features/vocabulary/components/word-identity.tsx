@@ -3,9 +3,9 @@ import type { LearningLanguage, WordType } from "@/features/learning/types";
 import { languageDetails } from "@/features/learning/language-config";
 
 const articleStyles: Record<string, string> = {
-  der: "text-[#8498b8]",
-  die: "text-[#bc8f98]",
-  das: "text-[#81a99f]",
+  der: "text-[#3B82F6]", // vivid blue
+  die: "text-[#F43F5E]", // vivid rose/red
+  das: "text-[#22C55E]", // vivid green
 };
 
 function grammarText(grammar: Record<string, unknown>, key: string): string | null {

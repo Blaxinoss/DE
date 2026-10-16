@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useFormStatus } from "react-dom";
 import { Check, LoaderCircle, Search, Sparkles, X } from "lucide-react";
+import { toast } from "sonner";
 import {
   generateDictionaryEntry,
   searchDictionary,
@@ -371,9 +372,9 @@ function NewVocabularyForm({
         await onSave(drafts);
         onClose();
       } catch (error) {
-        setMessage(
-          error instanceof Error ? error.message : "Could not save this word.",
-        );
+        toast.error("Could not add the selected vocabulary", {
+          description: error instanceof Error ? error.message : "Please try again.",
+        });
       }
     });
   };
@@ -537,22 +538,20 @@ function EditVocabularyForm({
   const details = languageDetails[language];
   const [draft, setDraft] = useState<VocabularyDraft>({ ...initial });
   const [grammar, setGrammar] = useState(JSON.stringify(initial.grammar, null, 2));
-  const [message, setMessage] = useState("");
   const [saving, startSave] = useTransition();
   const set = <K extends keyof VocabularyDraft>(field: K, value: VocabularyDraft[K]) =>
     setDraft((current) => ({ ...current, [field]: value }));
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    setMessage("");
     startSave(async () => {
       try {
         await onSave({ ...draft, grammar: JSON.parse(grammar || "{}") });
         onClose();
       } catch (error) {
-        setMessage(
-          error instanceof Error ? error.message : "Could not save this word.",
-        );
+        toast.error("Could not update this word", {
+          description: error instanceof Error ? error.message : "Please try again.",
+        });
       }
     });
   };
@@ -664,12 +663,6 @@ function EditVocabularyForm({
             spellCheck={false}
           />
         </label>
-
-        {message && (
-          <p className="rounded-xl bg-[var(--danger-soft)] p-3 text-sm font-semibold text-[var(--danger)]">
-            {message}
-          </p>
-        )}
 
         <div className="flex justify-end gap-3 border-t border-[var(--line)] pt-5">
           <button

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { ArrowRight, BookOpenCheck, LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
 import { login, signup } from "@/features/auth/actions";
 import { initialAuthState } from "@/features/auth/state";
 
@@ -14,6 +15,20 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
     isLogin ? login : signup,
     initialAuthState,
   );
+
+  useEffect(() => {
+    if (state.status === "error" && state.message && !state.fieldErrors) {
+      toast.error(isLogin ? "Could not sign in" : "Could not create your account", {
+        description: state.message,
+      });
+    } else if (state.status === "success" && state.message) {
+      toast.success("Account created", { description: state.message });
+    }
+  }, [isLogin, state]);
+
+  useEffect(() => {
+    if (notice) toast.success(notice, { id: "auth-notice" });
+  }, [notice]);
 
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10 sm:px-6">
@@ -144,14 +159,6 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
                 </p>
               )}
 
-              {state.status === "error" && state.message && (
-                <p
-                  role="alert"
-                  className="rounded-xl border border-[#623b44] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
-                >
-                  {state.message}
-                </p>
-              )}
               {state.status === "success" && state.message && (
                 <p
                   role="status"

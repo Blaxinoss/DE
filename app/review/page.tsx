@@ -16,6 +16,7 @@ import { GrammarDetails } from "@/features/vocabulary/components/grammar-details
 import { WordIdentity } from "@/features/vocabulary/components/word-identity";
 import { languageDetails } from "@/features/learning/language-config";
 import { useCurrentTime } from "@/hooks/use-current-time";
+import { toast } from "sonner";
 
 const options: {
   result: ReviewResult;
@@ -69,11 +70,23 @@ export default function ReviewPage() {
   const grade = async (result: ReviewResult) => {
     if (!current) return;
     setBusy(true);
-    await recordResult(current.id, result, "review");
-    setSessionDone((n) => n + 1);
-    setRevealed(false);
-    setIndex(0);
-    setBusy(false);
+    try {
+      await recordResult(current.id, result, "review");
+      setSessionDone((n) => n + 1);
+      setRevealed(false);
+      setIndex(0);
+      if (queue.length === 1) {
+        toast.success("Review complete", {
+          description: "Your progress and next review dates were saved.",
+        });
+      }
+    } catch (error) {
+      toast.error("Could not save this review", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <>

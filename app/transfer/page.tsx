@@ -7,6 +7,7 @@ import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provi
 import { buildExport, parseImport } from "@/features/vocabulary/import-export";
 import { languageDetails } from "@/features/learning/language-config";
 import { LearningLanguage } from "@/features/learning/types";
+import { toast } from "sonner";
 
 const samples: Record<LearningLanguage, string> = {
   de: `{
@@ -39,20 +40,19 @@ export default function TransferPage() {
   const { language, words, reviews, importWords } = useVocabulary();
   const details = languageDetails[language];
   const [json, setJson] = useState("");
-  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   const importData = async () => {
     try {
       setBusy(true);
       const result = await importWords(parseImport(json, language));
-      setMessage(
-        `Imported ${result.created} new and updated ${result.updated} existing ${result.updated === 1 ? "word" : "words"}.`,
-      );
+      toast.success("Import complete", {
+        description: `Imported ${result.created} new and updated ${result.updated} existing ${result.updated === 1 ? "word" : "words"}.`,
+      });
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not import this JSON.",
-      );
+      toast.error("Could not import this JSON", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -79,6 +79,9 @@ export default function TransferPage() {
     link.download = `wortweg-${language}-progress-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(blobUrl);
+    toast.success("Progress exported", {
+      description: `${words.length} ${details.name} ${words.length === 1 ? "word" : "words"} downloaded.`,
+    });
   };
 
   return (
@@ -129,14 +132,6 @@ export default function TransferPage() {
               {busy ? "Importing…" : "Import words"}
             </button>
           </div>
-          {message && (
-            <p
-              className="mt-4 rounded-xl border border-[var(--blue-line)] bg-[var(--blue-soft)] p-3 text-sm font-bold text-[var(--blue)]"
-              role="status"
-            >
-              {message}
-            </p>
-          )}
         </section>
 
         <section className="surface flex flex-col p-6 sm:p-8">

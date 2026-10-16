@@ -1,0 +1,30 @@
+{
+  "[sql]": {
+    "editor.defaultFormatter": "mtxr.sqltools",
+    "editor.formatOnSave": true,
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "on",
+      "other": "on"
+    }
+  },
+  "sqltools.connections": [
+    {
+      "name": "Deutsch Coach — Supabase",
+      "group": "Deutsch Coach",
+      "driver": "PostgreSQL",
+      "server": "aws-1-eu-central-1.pooler.supabase.com",
+      "port": 5432,
+      "database": "postgres",
+      "username": "postgres.zayxydeunbbressyqklc",
+      "askForPassword": true,
+      "connectionTimeout": 30,
+      "previewLimit": 100,
+      "pgOptions": {
+        "ssl": {
+          "rejectUnauthorized": false
+        }
+      }
+    }
+  ]
+}
