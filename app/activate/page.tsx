@@ -17,6 +17,7 @@ import { isActivationReady } from "@/features/learning/rules";
 import { useCurrentTime } from "@/hooks/use-current-time";
 import { submitActivation } from "@/features/activation/submit-activation";
 import { WordIdentity } from "@/features/vocabulary/components/word-identity";
+import { toast } from "sonner";
 
 export default function ActivatePage() {
   const { language, words, loading, applyLearningResults } = useVocabulary();
@@ -38,7 +39,6 @@ export default function ActivatePage() {
     ActivationSubmission["attempts"]
   >([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
   const stagedIds = new Set(
@@ -63,7 +63,6 @@ export default function ActivatePage() {
 
   const evaluateAttempts = async (attempts: ActivationSubmission["attempts"]) => {
     setBusy(true);
-    setError(null);
     setWarning(null);
 
     try {
@@ -80,12 +79,13 @@ export default function ActivatePage() {
       setEvaluatedAttempts(attempts);
       setEvaluation(result);
       setWarning(actionResult.warning ?? null);
+      toast.success("Activation evaluated", {
+        description: `${evaluatedIds.length} ${evaluatedIds.length === 1 ? "word was" : "words were"} updated.`,
+      });
     } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "The AI evaluation failed. Please try again.",
-      );
+      toast.error("The AI evaluation failed", {
+        description: reason instanceof Error ? reason.message : "Please try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -102,7 +102,9 @@ export default function ActivatePage() {
 
     setPendingAttempts(attempts);
     setText("");
-    setError(null);
+    toast.info("Exercise saved for this evaluation", {
+      description: `${attempts.length}/${ACTIVATION_EXERCISES_PER_REQUEST} exercises queued.`,
+    });
   };
 
   const evaluateNow = async () => {
@@ -117,7 +119,6 @@ export default function ActivatePage() {
     setText("");
     setEvaluation(null);
     setEvaluatedAttempts([]);
-    setError(null);
     setWarning(null);
   };
 
@@ -271,15 +272,6 @@ export default function ActivatePage() {
                 </div>
               ))}
             </div>
-
-            {error && (
-              <div
-                className="mt-4 rounded-xl border border-[#623b44] bg-[var(--danger-soft)] p-3 text-sm leading-6 text-[var(--danger)]"
-                role="alert"
-              >
-                {error}
-              </div>
-            )}
 
             <button
               className="btn-primary mt-5 w-full"

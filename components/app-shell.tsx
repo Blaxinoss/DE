@@ -10,12 +10,14 @@ import {
   CircleHelp,
   History,
   LayoutDashboard,
+  LibraryBig,
   LogOut,
   Repeat2,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { signOut } from "@/features/auth/actions";
 import { OnboardingGuide } from "@/features/guide/components/Guide";
+import { SeedPackDialog } from "@/features/seedPack/components/seed-pack-dialog";
 import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provider";
 
 const nav = [
@@ -52,7 +54,7 @@ function Brand() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [guideRequest, setGuideRequest] = useState(0);
-  const { databaseConnected } = useVocabulary();
+  const { databaseConnected, language, seededLanguages, openSeed } = useVocabulary();
   const isAuthPage = ["/", "/signup", "/forgot-password", "/reset-password"].includes(
     pathname,
   );
@@ -61,7 +63,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <OnboardingGuide openRequest={guideRequest} />
+      <OnboardingGuide
+        openRequest={guideRequest}
+        onAutomaticFinish={() => {
+          if (!seededLanguages.includes(language)) openSeed();
+        }}
+      />
+      <SeedPackDialog />
       <div className="mx-auto min-h-screen md:grid md:grid-cols-[264px_1fr]">
         <aside className="sticky top-0 hidden h-screen flex-col border-r border-[var(--line)] bg-[#0d141e]/88 px-5 py-7 backdrop-blur-xl md:flex">
           <div className="px-2">
@@ -115,6 +123,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Help
           </button>
 
+          <button
+            type="button"
+            className="mt-1 flex min-h-11 w-full items-center gap-3 rounded-xl px-3.5 text-sm font-bold text-[var(--muted)] transition hover:bg-[var(--lime-soft)] hover:text-[var(--ink)]"
+            onClick={openSeed}
+          >
+            <LibraryBig size={18} />
+            Starter pack
+          </button>
+
           <form
             action={signOut}
             className="mt-6"
@@ -152,6 +169,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Brand />
             <div className="flex items-center gap-1.5">
               <LanguageSwitcher compact />
+              <button
+                type="button"
+                className="icon-button"
+                onClick={openSeed}
+                aria-label="Open starter pack"
+              >
+                <LibraryBig size={18} />
+              </button>
               <button
                 type="button"
                 className="icon-button"

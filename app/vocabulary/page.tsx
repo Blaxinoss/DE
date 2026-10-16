@@ -23,6 +23,7 @@ import {
   wordTypes,
 } from "@/features/learning/types";
 import { PronunciationButton } from "@/features/tts/components/pronunciation-button";
+import { toast } from "sonner";
 
 export default function VocabularyPage() {
   const { language, words, loading, createWords, updateWord, deleteWord } =
@@ -79,6 +80,33 @@ export default function VocabularyPage() {
   // and in your console
 
   if (loading) return <LoadingState />;
+
+  const removeWord = async (word: Vocabulary) => {
+    try {
+      await deleteWord(word.id);
+      toast.success(`“${word.word}” deleted`);
+    } catch (error) {
+      toast.error("Could not delete this word", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    }
+  };
+
+  const requestDelete = (word: Vocabulary) => {
+    toast.warning(`Delete “${word.word}”?`, {
+      id: `delete-${word.id}`,
+      description: "Its review history will be removed too.",
+      duration: 10_000,
+      action: {
+        label: "Delete",
+        onClick: () => void removeWord(word),
+      },
+      cancel: {
+        label: "Keep",
+        onClick: () => undefined,
+      },
+    });
+  };
 
   return (
     <>
@@ -258,11 +286,7 @@ export default function VocabularyPage() {
                     </button>
                     <button
                       className="icon-button text-[var(--danger)] hover:bg-[var(--danger-soft)]"
-                      onClick={() => {
-                        if (confirm(`Delete “${word.word}”?`)) {
-                          void deleteWord(word.id);
-                        }
-                      }}
+                      onClick={() => requestDelete(word)}
                       aria-label={`Delete ${word.word}`}
                     >
                       <Trash2 size={18} />
@@ -324,12 +348,21 @@ export default function VocabularyPage() {
           language={language}
           existingLexiconIds={existingLexiconIds}
           onClose={() => setEditing(null)}
-          onCreate={(drafts) => createWords(drafts).then(() => undefined)}
+          onCreate={async (drafts) => {
+            await createWords(drafts);
+            toast.success(
+              drafts.length === 1
+                ? "Word added to your vocabulary"
+                : `${drafts.length} words added to your vocabulary`,
+            );
+          }}
           onUpdate={(draft) => {
             if (editing === "new") {
               throw new Error("No word selected for editing.");
             }
-            return updateWord(editing.id, draft).then(() => undefined);
+            return updateWord(editing.id, draft).then(() => {
+              toast.success("Vocabulary updated");
+            });
           }}
         />
       )}

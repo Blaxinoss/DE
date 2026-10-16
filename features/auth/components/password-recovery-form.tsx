@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { ArrowLeft, KeyRound, LoaderCircle, Mail } from "lucide-react";
+import { toast } from "sonner";
 import { requestPasswordReset, updatePassword } from "@/features/auth/actions";
 import { initialAuthState } from "@/features/auth/state";
 
@@ -14,6 +15,14 @@ export function PasswordRecoveryForm({ mode }: { mode: RecoveryMode }) {
     isRequest ? requestPasswordReset : updatePassword,
     initialAuthState,
   );
+
+  useEffect(() => {
+    if (state.status === "error" && state.message && !state.fieldErrors) {
+      toast.error("Account recovery failed", { description: state.message });
+    } else if (state.status === "success" && state.message) {
+      toast.success("Recovery email sent", { description: state.message });
+    }
+  }, [state]);
 
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10 sm:px-6">
@@ -112,14 +121,10 @@ export function PasswordRecoveryForm({ mode }: { mode: RecoveryMode }) {
             </>
           )}
 
-          {state.message && (
+          {state.status === "success" && state.message && (
             <p
-              role={state.status === "error" ? "alert" : "status"}
-              className={
-                state.status === "error"
-                  ? "rounded-xl border border-[#623b44] bg-[var(--danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
-                  : "rounded-xl border border-[#31584f] bg-[#17352f] px-4 py-3 text-sm font-semibold text-[var(--teal)]"
-              }
+              role="status"
+              className="rounded-xl border border-[#31584f] bg-[#17352f] px-4 py-3 text-sm font-semibold text-[var(--teal)]"
             >
               {state.message}
             </p>

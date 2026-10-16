@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LoaderCircle, Volume2 } from "lucide-react";
+import { toast } from "sonner";
 import type { LearningLanguage, Vocabulary } from "@/features/learning/types";
 import { createTtsProvider } from "@/features/tts/provider";
 import { buildAudioSourceText } from "../audio-source";
@@ -39,11 +40,12 @@ export function PronunciationButton({
     try {
       await provider.speak({ lexiconId, text, language });
     } catch (playError) {
-      setError(
+      const message =
         playError instanceof Error
           ? playError.message
-          : "Could not play pronunciation.",
-      );
+          : "Could not play pronunciation.";
+      setError(message);
+      toast.error("Pronunciation failed", { description: message });
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,8 @@ export const wordTypes = [
   "expression",
   "other",
 ] as const;
+
+export const level_CERF = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 export const targets = ["passive", "active"] as const;
 export const learningLanguages = ["de", "en"] as const;
 
@@ -18,6 +20,7 @@ export type ReviewResult = "instant" | "slow" | "hint" | "wrong";
 export type ActivationResult = "easy" | "effort" | "needed_help" | "could_not_use";
 export type LearningResult = ReviewResult | ActivationResult;
 export type ReviewType = "review" | "activate";
+export type CERF = (typeof level_CERF)[number];
 
 export interface Vocabulary {
   id: string;

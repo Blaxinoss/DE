@@ -1,5 +1,6 @@
 import {
   LearningLanguage,
+  learningLanguages,
   Review,
   Vocabulary,
   VocabularyDraft,
@@ -107,15 +108,22 @@ export const vocabularyRepository = {
   async getCoursePreferences(): Promise<{
     language: LearningLanguage;
     showGuide: boolean;
+    seededLanguages: LearningLanguage[];
   }> {
     const client = getVocabularyDatabase();
     const { data, error } = await client
       .from("user_preferences")
-      .select("learning_language, show_guide")
+      .select("learning_language, show_guide, seeded_languages")
       .maybeSingle();
 
     if (error) throw error;
+    const seededLanguages = (data?.seeded_languages ?? []).filter(
+      (value): value is LearningLanguage =>
+        learningLanguages.includes(value as LearningLanguage),
+    );
+
     return {
+      seededLanguages,
       language: data?.learning_language === "en" ? "en" : "de",
       showGuide: data?.show_guide ?? true,
     };
@@ -145,6 +153,7 @@ export const vocabularyRepository = {
 
   async loadCourseData(languageOverride?: LearningLanguage): Promise<{
     language: LearningLanguage;
+    seededLanguages: LearningLanguage[];
     showGuide: boolean;
     words: Vocabulary[];
     reviews: Review[];
@@ -170,6 +179,7 @@ export const vocabularyRepository = {
     return {
       language,
       showGuide: preferences.showGuide,
+      seededLanguages: preferences.seededLanguages,
       words,
       reviews: (reviewsResult.data as ReviewRow[])
         .filter((review) => wordIds.has(review.vocabulary_id))
