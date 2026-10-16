@@ -7,6 +7,7 @@ import {
   LearningLanguage,
   learningLanguages,
   level_CERF,
+  Vocabulary,
 } from "@/features/learning/types";
 
 type VocabularyInsert = Database["public"]["Tables"]["vocabulary"]["Insert"];
@@ -51,8 +52,8 @@ export async function seedUserVocabulary(
   const { data: lexiconRows, error: lexiconError } = await client
     .from("global_lexicon")
     .select("*")
-    .eq("level_cerf", cefr)
-    .eq("language", language);
+    .eq("language", language)
+    .eq("level_cerf", cefr);
 
   if (lexiconError) {
     console.error("Could not read the starter lexicon.", lexiconError);
@@ -74,7 +75,7 @@ export async function seedUserVocabulary(
     meaning_ar: lexicon.meaning_ar,
     type: lexicon.type,
     target: "active",
-    state: "new",
+    state: lexicon.state as Vocabulary["state"],
     grammar_json: lexicon.grammar_json,
     commonness: lexicon.commonness,
     chunk: lexicon.chunk,

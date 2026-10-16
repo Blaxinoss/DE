@@ -25,3 +25,12 @@ Supabase project. They require `TEST_PUBLIC_SUPABASE_URL`,
 `TEST_PUBLIC_SUPABASE_ANON_KEY`, and `TEST_SUPABASE_SECRET_KEY` in `.env.local`.
 The integration-test guard refuses to run when the test project URL or secret
 matches the application project.
+
+The starter-pack integration test expects the current pack entries to exist in
+the test project's `global_lexicon`. Validate and seed that project first:
+
+```bash
+bun scripts/database_seed_AllLevels.ts --validate-only
+bun --env-file=.env.local scripts/database_seed_AllLevels.ts
+bun run test:integration
+```

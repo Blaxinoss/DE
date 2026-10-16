@@ -58,6 +58,12 @@ CREATE TABLE IF NOT EXISTS public.global_lexicon (
   type TEXT NOT NULL CHECK (type IN ('noun', 'verb', 'adjective', 'adverb', 'expression', 'other')),
   grammar_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   commonness TEXT CHECK (commonness IS NULL OR commonness IN ('very_common', 'common', 'less_common', 'rare')),
+  level_cerf VARCHAR(2) CHECK (
+    UPPER(level_cerf) IN ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')
+  ),
+  state TEXT NOT NULL DEFAULT 'new' CHECK (
+    state IN ('new', 'learning', 'recall')
+  ),
   chunk TEXT,
   example TEXT,
   audio_path TEXT,
@@ -105,7 +111,8 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
         learning_language IN ('de', 'en')
     ),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    show_guide BOOLEAN NOT NULL DEFAULT TRUE
+    show_guide BOOLEAN NOT NULL DEFAULT TRUE,
+    seeded_languages TEXT[] DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS public.ai_daily_usage (
