@@ -1,15 +1,31 @@
+import type { LearningLanguage, WordType } from "@/features/learning/types";
+import { grammarKeysByType } from "@/features/vocabulary/grammar-config";
+
 const preferredLabels: Record<string, Record<string, string>> = {
   en: {
     article: "Article",
     singular: "Singular",
     plural: "Plural",
     present: "Present",
-    past: "Past",
+    thirdPerson: "Third person",
+    past: "Simple past",
+    pastParticiple: "Past participle",
+    gerund: "-ing form",
     auxiliary: "Auxiliary",
     partizipII: "Past Participle",
     reflexive: "Reflexive",
     preposition: "Preposition",
     objectCase: "Case",
+    countability: "Countability",
+    transitivity: "Transitivity",
+    comparative: "Comparative",
+    superlative: "Superlative",
+    commonVerb: "Common verb",
+    commonCollocation: "Common phrase",
+    commonAlternative: "Common alternative",
+    usagePattern: "Usage pattern",
+    literalMeaning: "Literal meaning",
+    usageNote: "Usage note",
     synonyms: "Synonyms",
   },
   de: {
@@ -17,12 +33,25 @@ const preferredLabels: Record<string, Record<string, string>> = {
     singular: "Singular",
     plural: "Plural",
     present: "Präsens",
+    thirdPerson: "Third person",
     past: "Präteritum",
+    pastParticiple: "Past participle",
+    gerund: "-ing form",
     auxiliary: "Auxiliary",
     partizipII: "Partizip II",
     reflexive: "Reflexive",
     preposition: "Preposition",
     objectCase: "Case",
+    countability: "Countability",
+    transitivity: "Transitivity",
+    comparative: "Comparative",
+    superlative: "Superlative",
+    commonVerb: "Common verb",
+    commonCollocation: "Common phrase",
+    commonAlternative: "Common alternative",
+    usagePattern: "Usage pattern",
+    literalMeaning: "Literal meaning",
+    usageNote: "Usage note",
     synonyms: "Synonyms",
   },
 };
@@ -52,6 +81,11 @@ function toneFor(key: string): string {
   if (["preposition", "objectCase", "reflexive"].includes(key)) {
     return "border-[#66542e] bg-[#2b261b]";
   }
+  if (
+    ["synonyms", "commonAlternative", "commonVerb", "commonCollocation"].includes(key)
+  ) {
+    return "border-[#465d3a] bg-[#243021]";
+  }
   return "border-[var(--line)] bg-[var(--panel-soft)]";
 }
 
@@ -60,15 +94,18 @@ export function GrammarDetails({
   compact = false,
   excludeKeys = [],
   language = "de",
+  type,
 }: {
   grammar: Record<string, unknown>;
   compact?: boolean;
   excludeKeys?: string[];
   language?: LearningLanguage;
+  type: WordType;
 }) {
   const excluded = new Set(excludeKeys);
+  const allowed = new Set<string>(grammarKeysByType[type]);
   const entries = Object.entries(grammar).flatMap(([key, value]) => {
-    if (excluded.has(key)) return [];
+    if (excluded.has(key) || !allowed.has(key)) return [];
     const formatted = valueFor(value);
     return formatted ? [[key, formatted] as const] : [];
   });
@@ -98,4 +135,3 @@ export function GrammarDetails({
     </dl>
   );
 }
-import { LearningLanguage } from "@/features/learning/types";

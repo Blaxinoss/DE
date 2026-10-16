@@ -67,17 +67,48 @@ export const activationRequestSchema = z
     }
   });
 
-export const targetWordEvaluationSchema = z.object({
-  vocabularyId: z.uuid(),
-  word: z.string(),
-  used: z.boolean(),
-  meaningCorrect: z.boolean(),
-  grammarCorrect: z.boolean(),
-  naturalUsage: z.boolean(),
-  collocationCorrect: z.boolean(),
-  usageScore: z.number().int().min(0).max(10),
-  feedbackAr: z.string().nullable(),
-});
+export const targetWordEvaluationSchema = z
+  .object({
+    vocabularyId: z.uuid(),
+    word: z.string(),
+    used: z.boolean(),
+    meaningCorrect: z.boolean(),
+    grammarCorrect: z.boolean(),
+    naturalUsage: z.boolean(),
+    collocationCorrect: z.boolean(),
+    usageScore: z.number().int().min(0).max(10),
+    feedbackAr: z.string().trim().min(1).nullable(),
+  })
+  .superRefine((word, context) => {
+    if (
+      !word.used &&
+      (word.usageScore !== 0 ||
+        word.meaningCorrect ||
+        word.grammarCorrect ||
+        word.naturalUsage ||
+        word.collocationCorrect)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Unused target words must have zero score and all correctness fields false",
+      });
+    }
+
+    const hasProblem =
+      !word.used ||
+      !word.meaningCorrect ||
+      !word.grammarCorrect ||
+      !word.naturalUsage ||
+      !word.collocationCorrect;
+    if (hasProblem && !word.feedbackAr) {
+      context.addIssue({
+        code: "custom",
+        message: "A target word with problems must include feedback",
+        path: ["feedbackAr"],
+      });
+    }
+  });
 
 export const activationErrorSchema = z.object({
   type: z.enum([
@@ -90,28 +121,49 @@ export const activationErrorSchema = z.object({
     "other",
   ]),
   severity: z.enum(["minor", "major"]),
-  original: z.string(),
-  correction: z.string(),
-  explanationAr: z.string(),
+  original: z.string().trim().min(1),
+  correction: z.string().trim().min(1),
+  explanationAr: z.string().trim().min(1),
   targetWordIds: z.array(z.uuid()),
 });
 
-export const activationAttemptResponseSchema = z.object({
-  attemptId: z.uuid(),
-  sentence: z.object({
-    correct: z.boolean(),
-    corrected: z.string().nullable(),
-    scores: z.object({
-      grammar: z.number().int().min(0).max(10),
-      naturalness: z.number().int().min(0).max(10),
-      meaning: z.number().int().min(0).max(10),
+export const activationAttemptResponseSchema = z
+  .object({
+    attemptId: z.uuid(),
+    sentence: z.object({
+      correct: z.boolean(),
+      corrected: z.string().trim().min(1).nullable(),
+      scores: z.object({
+        grammar: z.number().int().min(0).max(10),
+        naturalness: z.number().int().min(0).max(10),
+        meaning: z.number().int().min(0).max(10),
+      }),
+      feedbackAr: z.string().trim().min(1),
+      suggestion: z.string().trim().min(1).nullable(),
     }),
-    feedbackAr: z.string(),
-    suggestion: z.string().nullable(),
-  }),
-  errors: z.array(activationErrorSchema),
-  targetWords: z.array(targetWordEvaluationSchema),
-});
+    errors: z.array(activationErrorSchema),
+    targetWords: z.array(targetWordEvaluationSchema),
+  })
+  .superRefine((attempt, context) => {
+    if (!attempt.sentence.correct && !attempt.sentence.corrected) {
+      context.addIssue({
+        code: "custom",
+        message: "Incorrect answers must include a corrected answer",
+        path: ["sentence", "corrected"],
+      });
+    }
+
+    if (
+      attempt.sentence.correct &&
+      attempt.errors.some((error) => error.severity === "major")
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Correct answers cannot contain major errors",
+        path: ["errors"],
+      });
+    }
+  });
 
 export const activationResponseSchema = z.object({
   attempts: z

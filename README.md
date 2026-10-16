@@ -391,8 +391,39 @@ Open [http://localhost:3000](http://localhost:3000).
 | `bun run typecheck`               | Run TypeScript without emitting files     |
 | `bun run build`                   | Create and validate a production build    |
 | `bun run start`                   | Serve the production build                |
+| `bun run db:backup`               | Back up the remote application database   |
+| `bun run db:restore:check -- ...` | Restore and verify a backup locally        |
 | `bunx supabase db push --dry-run` | Preview pending linked-project migrations |
 | `bunx supabase db push`           | Apply pending linked-project migrations   |
+
+## Database backup and restore
+
+The scripts follow Supabase's roles/schema/data migration order with native
+PostgreSQL tools, so Docker is not required. Copy the source project's Session
+pooler URI from Supabase **Connect**, replace its password placeholder, then run:
+
+```powershell
+bun run db:backup
+```
+
+The script creates a timestamped folder containing `roles.sql`, `schema.sql`,
+`data.sql`, and migration-history files. Supabase-managed `auth` and `storage`
+schema definitions are not recreated because a new Supabase project already has
+them; their data is included, so Auth users and Storage metadata are preserved.
+
+To test it, create a new disposable Supabase project and restore into that new
+project only:
+
+```powershell
+bun run db:restore:check -- -BackupDirectory ".\backups\YYYYMMDD-HHMMSS"
+```
+
+The restore script asks for the new disposable project's Session pooler URI and
+requires typing `RESTORE-TEST`. It restores roles, application schema, Auth and
+Storage metadata, application data, and migration history in Supabase's
+documented order. Never use the production project as the target. Storage object
+files and project settings such as Auth URLs and API keys must still be copied
+separately.
 
 ## Import format
 
@@ -615,9 +646,12 @@ Confirm that:
 Before committing or deploying:
 
 ```bash
+bun test
 bun run typecheck
 bun run build
 ```
 
-These checks validate TypeScript, Server/Client Component boundaries, route
-generation, and the production bundle.
+Use `bun run test:watch` while developing and `bun run test:coverage` to inspect
+coverage. The tests, TypeScript check, and build validate behavior, types,
+Server/Client Component boundaries, route generation, and the production
+bundle.

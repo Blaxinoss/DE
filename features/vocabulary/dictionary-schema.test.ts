@@ -35,4 +35,47 @@ describe("lexicon schemas", () => {
       generatedWordsSchema.parse({ suggestions: [suggestion, suggestion] }),
     ).toThrow();
   });
+
+  test("rejects invented grammar keys", () => {
+    expect(() =>
+      generatedWordsSchema.parse({
+        suggestions: [
+          {
+            ...suggestion,
+            grammarFacts: [{ key: "somethingGeminiInvented", value: "x" }],
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  test("rejects grammar facts that belong to another word type", () => {
+    expect(() =>
+      generatedWordsSchema.parse({
+        suggestions: [
+          {
+            ...suggestion,
+            type: "noun",
+            grammarFacts: [{ key: "partizipII", value: "erinnert" }],
+          },
+        ],
+      }),
+    ).toThrow("partizipII is not valid for noun entries");
+  });
+
+  test("rejects duplicate grammar facts", () => {
+    expect(() =>
+      generatedWordsSchema.parse({
+        suggestions: [
+          {
+            ...suggestion,
+            grammarFacts: [
+              { key: "synonyms", value: "gedenken" },
+              { key: "synonyms", value: "sich entsinnen" },
+            ],
+          },
+        ],
+      }),
+    ).toThrow("Duplicate grammar fact: synonyms");
+  });
 });

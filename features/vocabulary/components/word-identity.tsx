@@ -9,8 +9,16 @@ const articleStyles: Record<string, string> = {
 };
 
 function grammarText(grammar: Record<string, unknown>, key: string): string | null {
-  const value = grammar[key];
+  const matchingKey = Object.keys(grammar).find(
+    (candidate) => candidate.toLocaleLowerCase() === key.toLocaleLowerCase(),
+  );
+  const value = matchingKey ? grammar[matchingKey] : undefined;
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export function extractGermanArticle(grammar: Record<string, unknown>): string | null {
+  const value = grammarText(grammar, "article");
+  return value?.match(/\b(der|die|das)\b/i)?.[1]?.toLocaleLowerCase("de-DE") ?? null;
 }
 
 export function WordIdentity({
@@ -30,7 +38,7 @@ export function WordIdentity({
 }) {
   const details = languageDetails[language];
   const article =
-    language === "de" && type === "noun" ? grammarText(grammar, "article") : null;
+    language === "de" && type === "noun" ? extractGermanArticle(grammar) : null;
   const singular = grammarText(grammar, "singular");
   const plural = showPlural ? grammarText(grammar, "plural") : null;
   const headword = singular ?? word;

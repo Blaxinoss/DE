@@ -34,6 +34,9 @@ export default function ActivatePage() {
   >([]);
   const [text, setText] = useState("");
   const [evaluation, setEvaluation] = useState<ActivationResponse | null>(null);
+  const [evaluatedAttempts, setEvaluatedAttempts] = useState<
+    ActivationSubmission["attempts"]
+  >([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -74,6 +77,7 @@ export default function ActivatePage() {
       setCompletedIds((current) => [...new Set([...current, ...evaluatedIds])]);
       setPendingAttempts([]);
       setText("");
+      setEvaluatedAttempts(attempts);
       setEvaluation(result);
       setWarning(actionResult.warning ?? null);
     } catch (reason) {
@@ -112,6 +116,7 @@ export default function ActivatePage() {
   const nextRound = () => {
     setText("");
     setEvaluation(null);
+    setEvaluatedAttempts([]);
     setError(null);
     setWarning(null);
   };
@@ -157,6 +162,7 @@ export default function ActivatePage() {
         <ActivationFeedback
           evaluation={evaluation}
           language={language}
+          answers={evaluatedAttempts}
           remaining={remainingWords.length}
           onContinue={nextRound}
           onRestart={restartSession}

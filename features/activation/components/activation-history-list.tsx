@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { BooleanBadge, ScoreBadge } from "@/components/ui";
 import type { ActivationHistoryAttempt } from "@/features/activation/history-query";
+import { AnswerComparison } from "./answer-comparison";
 
 const scoreStyles = {
   Grammar: "border-[var(--blue-line)] text-[var(--blue)]",
@@ -93,31 +94,12 @@ export function ActivationHistoryList({
               {attempt.feedbackAr}
             </p>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              {attempt.correctedAnswer && (
-                <div className="rounded-xl border border-[#70464d] bg-[var(--danger-soft)]/55 p-4">
-                  <p className="eyebrow">Corrected answer</p>
-                  <p
-                    className="mt-2 leading-7 text-[var(--ink)]"
-                    lang={attempt.language}
-                  >
-                    {attempt.correctedAnswer}
-                  </p>
-                </div>
-              )}
-              {attempt.naturalSuggestion &&
-                attempt.naturalSuggestion !== attempt.correctedAnswer && (
-                  <div className="rounded-xl border border-[var(--blue-line)] bg-[var(--blue-soft)] p-4">
-                    <p className="eyebrow">More natural</p>
-                    <p
-                      className="mt-2 leading-7 text-[var(--ink)]"
-                      lang={attempt.language}
-                    >
-                      {attempt.naturalSuggestion}
-                    </p>
-                  </div>
-                )}
-            </div>
+            <AnswerComparison
+              original={attempt.answer}
+              corrected={attempt.correctedAnswer}
+              suggestion={attempt.naturalSuggestion}
+              language={attempt.language}
+            />
 
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               <section>

@@ -45,7 +45,7 @@ function asDraft(
   const word = String(raw.word ?? "").trim();
   if (!word) {
     throw new Error(
-      `Every imported item needs an ${languageDetails[language].name} word.`,
+      `Every imported item needs a word in ${languageDetails[language].name}.`,
     );
   }
   const grammar = raw.grammar ?? raw.grammar_json;
@@ -91,25 +91,27 @@ export function buildExport(
   return {
     language,
     exportedAt: new Date().toISOString(),
-    words: words.map((word) => {
-      const history = reviews
-        .filter((review) => review.vocabularyId === word.id)
-        .slice(0, 5);
-      return {
-        word: word.word,
-        meaningAr: word.meaningAr,
-        type: word.type,
-        target: word.target,
-        state: word.state,
-        grammar: word.grammar,
-        chunk: word.chunk,
-        example: word.example,
-        recentFailures: history.filter((item) =>
-          ["wrong", "hint", "needed_help", "could_not_use"].includes(item.result),
-        ).length,
-        recentReviewStatus: history[0]?.result ?? "not_reviewed",
-        nextReviewAt: word.nextReviewAt,
-      };
-    }),
+    words: words
+      .filter((word) => word.language === language)
+      .map((word) => {
+        const history = reviews
+          .filter((review) => review.vocabularyId === word.id)
+          .slice(0, 5);
+        return {
+          word: word.word,
+          meaningAr: word.meaningAr,
+          type: word.type,
+          target: word.target,
+          state: word.state,
+          grammar: word.grammar,
+          chunk: word.chunk,
+          example: word.example,
+          recentFailures: history.filter((item) =>
+            ["wrong", "hint", "needed_help", "could_not_use"].includes(item.result),
+          ).length,
+          recentReviewStatus: history[0]?.result ?? "not_reviewed",
+          nextReviewAt: word.nextReviewAt,
+        };
+      }),
   };
 }

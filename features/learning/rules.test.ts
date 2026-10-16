@@ -5,25 +5,7 @@ import {
   nextState,
   scheduleNextReview,
 } from "./rules";
-import { Vocabulary } from "./types";
-
-const baseWord: Vocabulary = {
-  id: "word-id",
-  language: "de",
-  lexiconId: null,
-  word: "lernen",
-  meaningAr: "يتعلم",
-  type: "verb",
-  target: "active",
-  state: "new",
-  grammar: {},
-  commonness: "common",
-  chunk: null,
-  example: null,
-  nextReviewAt: null,
-  createdAt: "2026-10-10T00:00:00.000Z",
-  updatedAt: "2026-10-10T00:00:00.000Z",
-};
+import { makeVocabulary } from "@/tests/factories/vocabulary";
 
 describe("nextState", () => {
   test("moves a new word to learning after a positive review", () => {
@@ -32,6 +14,17 @@ describe("nextState", () => {
 
   test("moves learning to recall after an instant review", () => {
     expect(nextState("learning", "instant", "review")).toBe("recall");
+  });
+
+  test("keeps learning after a slow review", () => {
+    // Arrange
+    const currentState = "learning";
+
+    // Act
+    const state = nextState(currentState, "slow", "review");
+
+    // Assert
+    expect(state).toBe("learning");
   });
 
   test("does not promote recall through an ordinary review", () => {
@@ -44,6 +37,10 @@ describe("nextState", () => {
 
   test("keeps the state after a result that needed help", () => {
     expect(nextState("recall", "needed_help", "activate")).toBe("recall");
+  });
+
+  test("keeps the state after using a hint", () => {
+    expect(nextState("learning", "hint", "review")).toBe("learning");
   });
 
   test("demotes immediately after a complete failure", () => {
@@ -63,14 +60,26 @@ describe("review scheduling", () => {
 
   test("schedules complete failures after two hours", () => {
     expect(scheduleNextReview("active", "wrong", now)).toBe("2026-10-10T02:00:00.000Z");
+    expect(scheduleNextReview("recall", "could_not_use", now)).toBe(
+      "2026-10-10T02:00:00.000Z",
+    );
+  });
+
+  test("brings a hinted new word back after the minimum interval", () => {
+    expect(scheduleNextReview("new", "hint", now)).toBe("2026-10-10T04:48:00.000Z");
+  });
+
+  test("reduces a recall interval after activation needed help", () => {
+    expect(scheduleNextReview("recall", "needed_help", now)).toBe(
+      "2026-10-11T09:36:00.000Z",
+    );
   });
 
   test("only makes due recall words with an active target ready to activate", () => {
-    const recallWord = {
-      ...baseWord,
-      state: "recall" as const,
+    const recallWord = makeVocabulary({
+      state: "recall",
       nextReviewAt: "2026-10-09T00:00:00.000Z",
-    };
+    });
 
     expect(isActivationReady(recallWord, now)).toBe(true);
     expect(
@@ -82,11 +91,10 @@ describe("review scheduling", () => {
   });
 
   test("routes due active-target recall words to Activate instead of Review", () => {
-    const recallWord = {
-      ...baseWord,
-      state: "recall" as const,
+    const recallWord = makeVocabulary({
+      state: "recall",
       nextReviewAt: "2026-10-09T00:00:00.000Z",
-    };
+    });
 
     expect(isActivationReady(recallWord, now)).toBe(true);
     expect(isReviewReady(recallWord, now)).toBe(false);

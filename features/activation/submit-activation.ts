@@ -10,6 +10,7 @@ import {
   activationSubmissionSchema,
 } from "@/features/activation/schema";
 import { evaluateWithGemini } from "@/features/activation/gemini-evaluator";
+import { evaluateBeforeSaving } from "@/features/activation/evaluate-before-save";
 import { geminiModel } from "@/lib/ai/gemini-client";
 import { toActivationResult } from "@/features/activation/map-result";
 import type { Database, Json } from "@/lib/database.types";
@@ -225,10 +226,10 @@ async function evaluateAndSaveActivation(
   const submission = activationSubmissionSchema.parse(rawInput);
   const words = await loadAndValidateActivationWords(client, user, submission);
   await consumeAiQuota(client, "activate");
-  const evaluation = await evaluateWithGemini(
-    buildActivationEvaluationRequest(submission, words),
+  const { evaluation, saved: savedResults } = await evaluateBeforeSaving(
+    () => evaluateWithGemini(buildActivationEvaluationRequest(submission, words)),
+    (result) => saveActivationLearningResults(client, words, result),
   );
-  const savedResults = await saveActivationLearningResults(client, words, evaluation);
   let historySaved = false;
 
   try {

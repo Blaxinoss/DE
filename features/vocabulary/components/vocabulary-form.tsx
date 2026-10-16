@@ -162,6 +162,7 @@ function WordOption({
       {Object.keys(suggestion.grammar).length > 0 && (
         <GrammarDetails
           grammar={suggestion.grammar}
+          type={suggestion.type}
           language={language}
         />
       )}

@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CircleGauge, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleGauge } from "lucide-react";
 import { BooleanBadge, ScoreBadge } from "@/components/ui";
 import {
   ActivationAttemptResponse,
@@ -6,6 +6,7 @@ import {
 } from "@/features/activation/schema";
 import { toActivationResult } from "@/features/activation/map-result";
 import { ActivationResult, LearningLanguage } from "@/features/learning/types";
+import { AnswerComparison } from "./answer-comparison";
 
 const resultLabels: Record<ActivationResult, string> = {
   easy: "Strong use",
@@ -59,11 +60,13 @@ function AttemptFeedback({
   index,
   total,
   language,
+  originalAnswer,
 }: {
   attempt: ActivationAttemptResponse;
   index: number;
   total: number;
   language: LearningLanguage;
+  originalAnswer: string;
 }) {
   return (
     <section
@@ -119,37 +122,12 @@ function AttemptFeedback({
         {attempt.sentence.feedbackAr}
       </p>
 
-      {attempt.sentence.corrected && (
-        <div className="mt-5 rounded-xl border border-[#70464d] bg-[var(--danger-soft)]/55 p-4">
-          <p className="text-xs font-extrabold uppercase tracking-[.14em] text-[var(--blue)]">
-            Corrected answer
-          </p>
-          <p
-            className="mt-2 leading-7 text-[var(--ink)]"
-            lang={language}
-          >
-            {attempt.sentence.corrected}
-          </p>
-        </div>
-      )}
-
-      {attempt.sentence.suggestion &&
-        attempt.sentence.suggestion !== attempt.sentence.corrected && (
-          <div className="mt-3 rounded-xl border border-[var(--blue-line)] bg-[var(--blue-soft)] p-4">
-            <div className="flex items-center gap-2 text-[var(--blue)]">
-              <Sparkles size={17} />
-              <p className="text-xs font-extrabold uppercase tracking-[.14em]">
-                More natural
-              </p>
-            </div>
-            <p
-              className="mt-2 leading-7 text-[var(--ink)]"
-              lang={language}
-            >
-              {attempt.sentence.suggestion}
-            </p>
-          </div>
-        )}
+      <AnswerComparison
+        original={originalAnswer}
+        corrected={attempt.sentence.corrected}
+        suggestion={attempt.sentence.suggestion}
+        language={language}
+      />
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <div className="surface-muted p-4 sm:p-5">
@@ -276,17 +254,22 @@ function AttemptFeedback({
 export function ActivationFeedback({
   evaluation,
   language,
+  answers,
   remaining,
   onContinue,
   onRestart,
 }: {
   evaluation: ActivationResponse;
   language: LearningLanguage;
+  answers: Array<{ attemptId: string; answer: string }>;
   remaining: number;
   onContinue(): void;
   onRestart(): void;
 }) {
   const allCorrect = evaluation.attempts.every((attempt) => attempt.sentence.correct);
+  const answerByAttempt = new Map(
+    answers.map((attempt) => [attempt.attemptId, attempt.answer]),
+  );
 
   return (
     <div className="space-y-5">
@@ -319,6 +302,7 @@ export function ActivationFeedback({
           index={index}
           total={evaluation.attempts.length}
           language={language}
+          originalAnswer={answerByAttempt.get(attempt.attemptId) ?? ""}
         />
       ))}
 

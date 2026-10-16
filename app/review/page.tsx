@@ -169,6 +169,7 @@ export default function ReviewPage() {
                     )}
                     <GrammarDetails
                       grammar={current.grammar}
+                      type={current.type}
                       language={language}
                       compact
                     />

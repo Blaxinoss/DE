@@ -290,6 +290,7 @@ export default function VocabularyPage() {
                   >
                     <GrammarDetails
                       grammar={word.grammar}
+                      type={word.type}
                       language={language}
                       excludeKeys={["article", "singular", "plural"]}
                     />

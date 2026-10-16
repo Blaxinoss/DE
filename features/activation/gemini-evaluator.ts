@@ -1,13 +1,12 @@
 import "server-only";
 import { ApiError } from "@google/genai";
 import {
-  ActivationAttemptRequest,
-  ActivationAttemptResponse,
   ActivationRequest,
   ActivationResponse,
   activationRequestSchema,
   activationResponseSchema,
 } from "./schema";
+import { parseActivationEvaluation } from "./parse-evaluation";
 import { geminiModel, getGeminiClient } from "@/lib/ai/gemini-client";
 import { toGeminiJsonSchema } from "@/lib/ai/json-schema";
 import { languageDetails } from "@/features/learning/language-config";
@@ -28,9 +27,12 @@ Rules:
 - Keep learner originals, corrections, and suggestions in ${language.name}.
 - Return every attempt exactly once and copy its attemptId without changing it.
 - Never move a target word, error, or feedback from one attempt to another.
-- A sentence may be correct even when it is slightly unnatural. In that case set correct=true, lower naturalness, and provide a suggestion.
-- corrected must be the complete corrected ${language.name} answer when a correction is useful; otherwise null.
-- suggestion must be a more natural complete ${language.name} version when useful; otherwise null.
+- corrected is a minimal correction of the learner's complete answer: preserve their meaning, structure, wording, number of sentences, and target words as much as possible, changing only actual grammar, spelling, word-choice, or collocation errors. Return null when no correction is needed.
+- suggestion is not another correction. Use it only when the corrected answer is valid but still noticeably unidiomatic or awkward. It may improve the wider phrasing, but it must preserve the learner's intended meaning and every target word (or its required inflected/separated/reflexive form).
+- If the answer is already correct and reasonably natural, return suggestion=null. Do not rewrite it merely because another phrasing is possible or more elegant.
+- If every target word has naturalUsage=true and the sentence naturalness score is 8 or higher, suggestion must be null.
+- suggestion must never omit, replace, or evade a requested target word. If no genuinely better phrasing can retain all target words, return null.
+- Never return corrected or suggestion equal to the learner's original answer, and never return the same text in both fields.
 - Score grammar, naturalness, meaning, and each word from 0 to 10.
 - Within each attempt, evaluate every target word exactly once and copy its id into vocabularyId without changing it.
 - used is true only when the learner actually used the target word or an inflected form of it.
@@ -43,68 +45,6 @@ Rules:
 
 Shared task and learner attempts:
 ${JSON.stringify(input)}`;
-}
-
-function validateWordCoverage(
-  input: ActivationAttemptRequest,
-  output: ActivationAttemptResponse,
-): void {
-  const expectedWords = new Map(input.targetWords.map((word) => [word.id, word.word]));
-  const returnedIds = output.targetWords.map((word) => word.vocabularyId);
-
-  if (
-    returnedIds.length !== expectedWords.size ||
-    new Set(returnedIds).size !== returnedIds.length ||
-    returnedIds.some((id) => !expectedWords.has(id))
-  ) {
-    throw new Error(
-      `Gemini returned incomplete target-word coverage for attempt ${input.attemptId}`,
-    );
-  }
-
-  if (
-    output.targetWords.some(
-      (word) => expectedWords.get(word.vocabularyId) !== word.word,
-    )
-  ) {
-    throw new Error(`Gemini changed a target word in attempt ${input.attemptId}`);
-  }
-
-  if (
-    output.errors.some((error) =>
-      error.targetWordIds.some((id) => !expectedWords.has(id)),
-    )
-  ) {
-    throw new Error(
-      `Gemini returned an unknown target-word id for attempt ${input.attemptId}`,
-    );
-  }
-}
-
-function validateAttemptCoverage(
-  input: ActivationRequest,
-  output: ActivationResponse,
-): void {
-  const expectedAttempts = new Map(
-    input.attempts.map((attempt) => [attempt.attemptId, attempt]),
-  );
-  const returnedIds = output.attempts.map((attempt) => attempt.attemptId);
-
-  if (
-    returnedIds.length !== expectedAttempts.size ||
-    new Set(returnedIds).size !== returnedIds.length ||
-    returnedIds.some((id) => !expectedAttempts.has(id))
-  ) {
-    throw new Error("Gemini returned incomplete attempt coverage");
-  }
-
-  for (const outputAttempt of output.attempts) {
-    const inputAttempt = expectedAttempts.get(outputAttempt.attemptId);
-    if (!inputAttempt) {
-      throw new Error("Gemini returned an unknown attempt id");
-    }
-    validateWordCoverage(inputAttempt, outputAttempt);
-  }
 }
 
 async function generate(input: ActivationRequest): Promise<ActivationResponse> {
@@ -122,9 +62,7 @@ async function generate(input: ActivationRequest): Promise<ActivationResponse> {
     throw new Error("Gemini returned an empty response");
   }
 
-  const output = activationResponseSchema.parse(JSON.parse(response.text));
-  validateAttemptCoverage(input, output);
-  return output;
+  return parseActivationEvaluation(input, response.text);
 }
 
 export async function evaluateWithGemini(
