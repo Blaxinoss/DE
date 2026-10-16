@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { learningLanguages, wordTypes } from "@/features/learning/types";
-import {
-  grammarFactKeys,
-  grammarKeysByType,
-} from "@/features/vocabulary/grammar-config";
+import { grammarKeysByType } from "@/features/vocabulary/grammar-config";
 
 export const WORD_DATA_VERSION = 2;
 export const MAX_WORD_SUGGESTIONS = 3;
@@ -14,7 +11,11 @@ export const wordQuerySchema = z.object({
 });
 
 const grammarFactSchema = z.object({
-  key: z.enum(grammarFactKeys),
+  key: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z][a-zA-Z0-9]*$/),
   value: z.string().min(1).max(300),
 });
 

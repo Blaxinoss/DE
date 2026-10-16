@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { toGeminiJsonSchema } from "@/lib/ai/json-schema";
 import { generatedWordsSchema, wordQuerySchema } from "./dictionary-schema";
 
 const suggestion = {
@@ -47,6 +48,13 @@ describe("lexicon schemas", () => {
         ],
       }),
     ).toThrow();
+  });
+
+  test("keeps the Gemini response schema provider-compatible", () => {
+    const jsonSchema = JSON.stringify(toGeminiJsonSchema(generatedWordsSchema));
+
+    expect(jsonSchema).toContain('"pattern":"^[a-z][a-zA-Z0-9]*$"');
+    expect(jsonSchema).not.toContain('"enum":["article","singular"');
   });
 
   test("rejects grammar facts that belong to another word type", () => {
