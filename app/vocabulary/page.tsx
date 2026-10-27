@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Pencil, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Network,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { GrammarDetails } from "@/features/vocabulary/components/grammar-details";
 import { WordIdentity } from "@/features/vocabulary/components/word-identity";
 import {
@@ -24,6 +32,7 @@ import {
 } from "@/features/learning/types";
 import { PronunciationButton } from "@/features/tts/components/pronunciation-button";
 import { toast } from "sonner";
+import { WordFamilyDialog } from "@/features/word-tree/components/word-family-dialog";
 
 export default function VocabularyPage() {
   const { language, words, loading, createWords, updateWord, deleteWord } =
@@ -35,6 +44,10 @@ export default function VocabularyPage() {
   const [wordType, setWordType] = useState<"all" | WordType>("all");
   const [editing, setEditing] = useState<Vocabulary | "new" | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedFamilyWord, setSelectedFamilyWord] = useState<{
+    lemma: string;
+    lexiconId: string | null;
+  } | null>(null);
   const existingLexiconIds = useMemo(
     () =>
       new Set(
@@ -277,6 +290,22 @@ export default function VocabularyPage() {
                     />
                   )}
                   <div className="flex shrink-0 items-center gap-1">
+                    {word.type === "verb" && (
+                      <button
+                        type="button"
+                        className="icon-button text-[var(--blue)] hover:bg-[var(--blue-soft)]"
+                        onClick={() =>
+                          setSelectedFamilyWord({
+                            lemma: word.word,
+                            lexiconId: word.lexiconId,
+                          })
+                        }
+                        aria-label={`Explore the ${word.word} verb family`}
+                        title="Explore verb family"
+                      >
+                        <Network size={18} />
+                      </button>
+                    )}
                     <button
                       className="icon-button"
                       onClick={() => setEditing(word)}
@@ -366,6 +395,13 @@ export default function VocabularyPage() {
           }}
         />
       )}
+
+      <WordFamilyDialog
+        language={language}
+        lemma={selectedFamilyWord?.lemma ?? null}
+        lexiconId={selectedFamilyWord?.lexiconId ?? null}
+        onClose={() => setSelectedFamilyWord(null)}
+      />
     </>
   );
 }

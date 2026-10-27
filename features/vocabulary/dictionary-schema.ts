@@ -2,7 +2,7 @@ import { z } from "zod";
 import { learningLanguages, wordTypes } from "@/features/learning/types";
 import { grammarKeysByType } from "@/features/vocabulary/grammar-config";
 
-export const WORD_DATA_VERSION = 2;
+export const WORD_DATA_VERSION = 3;
 export const MAX_WORD_SUGGESTIONS = 3;
 
 export const wordQuerySchema = z.object({
@@ -19,6 +19,8 @@ const grammarFactSchema = z.object({
   value: z.string().min(1).max(300),
 });
 
+const verbFamilyPathSchema = z.array(z.string().trim().min(1).max(100)).min(1).max(8);
+
 export const generatedWordSchema = z
   .object({
     senseKey: z
@@ -34,6 +36,7 @@ export const generatedWordSchema = z
     chunk: z.string().trim().min(1).max(500).nullable(),
     example: z.string().trim().min(1).max(1000).nullable(),
     searchTerms: z.array(z.string().trim().min(1).max(100)).min(1).max(10),
+    verbFamilyPath: verbFamilyPathSchema.nullable(),
   })
   .superRefine((word, context) => {
     const allowedKeys = new Set<string>(grammarKeysByType[word.type]);
@@ -56,6 +59,26 @@ export const generatedWordSchema = z
       }
       seenKeys.add(fact.key);
     });
+
+    if (word.type !== "verb" && word.verbFamilyPath !== null) {
+      context.addIssue({
+        code: "custom",
+        message: "Only verbs can belong to a verb family",
+        path: ["verbFamilyPath"],
+      });
+    }
+
+    if (word.verbFamilyPath) {
+      const normalizedPath = word.verbFamilyPath.map(normalizeFamilyLemma);
+
+      if (new Set(normalizedPath).size !== normalizedPath.length) {
+        context.addIssue({
+          code: "custom",
+          message: "A verb-family path cannot repeat a lemma",
+          path: ["verbFamilyPath"],
+        });
+      }
+    }
   });
 
 export const generatedWordsSchema = z
@@ -71,10 +94,67 @@ export const generatedWordsSchema = z
         path: ["suggestions"],
       });
     }
+
+    const pathsByVerb = new Map<string, string>();
+    output.suggestions.forEach((suggestion, index) => {
+      if (suggestion.type !== "verb" || !suggestion.verbFamilyPath) return;
+
+      const verb = normalizeFamilyLemma(suggestion.word.replace(/^sich\s+/i, ""));
+      const path = suggestion.verbFamilyPath.map(normalizeFamilyLemma).join("\u0000");
+      const existingPath = pathsByVerb.get(verb);
+
+      if (existingPath && existingPath !== path) {
+        context.addIssue({
+          code: "custom",
+          message: "Senses of the same verb must share one family path",
+          path: ["suggestions", index, "verbFamilyPath"],
+        });
+      } else {
+        pathsByVerb.set(verb, path);
+      }
+    });
   });
 
 export type WordQuery = z.infer<typeof wordQuerySchema>;
 export type GeneratedWord = z.infer<typeof generatedWordSchema>;
+
+export function parseGeneratedWords(
+  input: unknown,
+  language: (typeof learningLanguages)[number],
+) {
+  return generatedWordsSchema
+    .superRefine((output, context) => {
+      output.suggestions.forEach((word, index) => {
+        const path = word.verbFamilyPath;
+
+        if (word.type === "verb" && path === null) {
+          context.addIssue({
+            code: "custom",
+            message: "Verbs must describe their verb-family path",
+            path: ["suggestions", index, "verbFamilyPath"],
+          });
+        }
+
+        if (path) {
+          const expectedLemma = normalizeFamilyLemma(
+            word.word.replace(/^sich\s+/i, ""),
+          );
+          if (normalizeFamilyLemma(path.at(-1) ?? "") !== expectedLemma) {
+            context.addIssue({
+              code: "custom",
+              message: "The verb-family path must end with the entry lemma",
+              path: ["suggestions", index, "verbFamilyPath"],
+            });
+          }
+        }
+      });
+    })
+    .parse(input);
+}
+
+function normalizeFamilyLemma(value: string): string {
+  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
 
 export type WordSuggestion = {
   id: string | null;
@@ -88,4 +168,5 @@ export type WordSuggestion = {
   example: string | null;
   searchTerms: string[];
   score: number | null;
+  verbFamilyPath: string[] | null;
 };

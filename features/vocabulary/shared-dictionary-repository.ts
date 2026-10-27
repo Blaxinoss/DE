@@ -33,6 +33,7 @@ function fromSearchRow(row: LexiconSearchRow): WordSuggestion {
     example: row.example,
     searchTerms: row.search_terms,
     score: row.score,
+    verbFamilyPath: null,
   };
 }
 
@@ -49,6 +50,7 @@ function fromRow(row: LexiconRow): WordSuggestion {
     example: row.example,
     searchTerms: row.search_terms,
     score: null,
+    verbFamilyPath: null,
   };
 }
 
@@ -73,35 +75,35 @@ export async function saveGeneratedDictionaryEntries(
   suggestions: WordSuggestion[],
 ): Promise<WordSuggestion[]> {
   const normalizedQuery = normalizeSearchTerm(query, language);
-  const updatedAt = new Date().toISOString();
-  const rows: Database["public"]["Tables"]["global_lexicon"]["Insert"][] =
-    suggestions.map((candidate) => {
-      const searchTerms = [query, candidate.word, ...candidate.searchTerms]
-        .map((term) => normalizeSearchTerm(term, language))
-        .filter((term, index, all) => term && all.indexOf(term) === index);
+  const entries = suggestions.map((candidate) => {
+    const searchTerms = [query, candidate.word, ...candidate.searchTerms]
+      .map((term) => normalizeSearchTerm(term, language))
+      .filter((term, index, all) => term && all.indexOf(term) === index);
 
-      return {
-        language,
-        sense_key: candidate.senseKey,
-        word: candidate.word,
-        normalized_word: normalizeSearchTerm(candidate.word, language),
-        meaning_ar: candidate.meaningAr,
-        type: candidate.type,
-        grammar_json: candidate.grammar as Json,
-        commonness: candidate.commonness,
-        chunk: candidate.chunk,
-        example: candidate.example,
-        search_terms: [...new Set([normalizedQuery, ...searchTerms])],
-        model: geminiModel,
-        schema_version: WORD_DATA_VERSION,
-        updated_at: updatedAt,
-      };
-    });
+    return {
+      sense_key: candidate.senseKey,
+      word: candidate.word,
+      normalized_word: normalizeSearchTerm(candidate.word, language),
+      meaning_ar: candidate.meaningAr,
+      type: candidate.type,
+      grammar_json: candidate.grammar as Json,
+      commonness: candidate.commonness,
+      chunk: candidate.chunk,
+      example: candidate.example,
+      search_terms: [...new Set([normalizedQuery, ...searchTerms])],
+      verb_family_path: candidate.verbFamilyPath,
+    };
+  });
 
-  const { data, error } = await createAdminSupabaseClient()
-    .from("global_lexicon")
-    .upsert(rows, { onConflict: "language,sense_key" })
-    .select();
+  const { data, error } = await createAdminSupabaseClient().rpc(
+    "save_generated_lexicon_entries",
+    {
+      p_language: language,
+      p_entries: entries as Json,
+      p_model: geminiModel,
+      p_schema_version: WORD_DATA_VERSION,
+    },
+  );
 
   if (error) throw error;
   return (data as LexiconRow[]).map(fromRow);

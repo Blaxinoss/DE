@@ -102,6 +102,24 @@ CREATE TABLE IF NOT EXISTS public.global_lexicon (
   UNIQUE (language, sense_key)
 );
 
+CREATE TABLE IF NOT EXISTS public.verb_tree_nodes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  language TEXT NOT NULL CHECK (language IN ('de', 'en')),
+  lemma TEXT NOT NULL CHECK (CHAR_LENGTH(TRIM(lemma)) > 0),
+  normalized_lemma TEXT NOT NULL CHECK (
+    CHAR_LENGTH(TRIM(normalized_lemma)) > 0
+  ),
+  parent_id UUID REFERENCES public.verb_tree_nodes(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (language, normalized_lemma),
+  CHECK (parent_id IS NULL OR parent_id <> id)
+);
+
+ALTER TABLE public.global_lexicon
+ADD COLUMN IF NOT EXISTS verb_tree_node_id UUID
+REFERENCES public.verb_tree_nodes(id) ON DELETE SET NULL;
+
 ALTER TABLE public.vocabulary
 ADD COLUMN IF NOT EXISTS lexicon_id UUID REFERENCES public.global_lexicon (id) ON DELETE SET NULL;
 
@@ -200,6 +218,43 @@ CREATE INDEX IF NOT EXISTS global_lexicon_word_trgm_idx ON public.global_lexicon
     normalized_word extensions.gin_trgm_ops
 );
 
+CREATE INDEX IF NOT EXISTS verb_tree_nodes_parent_idx ON public.verb_tree_nodes (parent_id);
+
+CREATE INDEX IF NOT EXISTS global_lexicon_verb_tree_node_idx
+ON public.global_lexicon (verb_tree_node_id)
+WHERE verb_tree_node_id IS NOT NULL;
+
+INSERT INTO public.verb_tree_nodes (
+  language,
+  lemma,
+  normalized_lemma,
+  parent_id
+)
+SELECT DISTINCT ON (lexicon.language, lexicon.normalized_word)
+  lexicon.language,
+  lexicon.word,
+  lexicon.normalized_word,
+  NULL
+FROM public.global_lexicon AS lexicon
+WHERE lexicon.language = 'en'
+  AND lexicon.type = 'verb'
+  AND lexicon.verb_tree_node_id IS NULL
+  AND TRIM(lexicon.normalized_word) <> ''
+ORDER BY
+  lexicon.language,
+  lexicon.normalized_word,
+  lexicon.updated_at DESC
+ON CONFLICT (language, normalized_lemma) DO NOTHING;
+
+UPDATE public.global_lexicon AS lexicon
+SET verb_tree_node_id = node.id,
+    updated_at = NOW()
+FROM public.verb_tree_nodes AS node
+WHERE lexicon.verb_tree_node_id IS NULL
+  AND lexicon.type = 'verb'
+  AND lexicon.language = node.language
+  AND lexicon.normalized_word = node.normalized_lemma;
+
 CREATE INDEX IF NOT EXISTS activation_attempts_user_created_idx ON public.activation_attempts (user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS activation_word_results_attempt_idx ON public.activation_word_results (attempt_id);
@@ -237,6 +292,97 @@ CREATE TRIGGER global_lexicon_set_updated_at
   BEFORE UPDATE ON public.global_lexicon
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.validate_verb_tree_parent()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  parent_language TEXT;
+  creates_cycle BOOLEAN;
+BEGIN
+  IF TG_OP = 'UPDATE'
+    AND NEW.language IS DISTINCT FROM OLD.language
+    AND EXISTS (
+      SELECT 1
+      FROM public.verb_tree_nodes AS child
+      WHERE child.parent_id = NEW.id
+        AND child.language <> NEW.language
+    )
+  THEN
+    RAISE EXCEPTION 'A verb and its children must use the same language';
+  END IF;
+
+  IF NEW.parent_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.parent_id = NEW.id THEN
+    RAISE EXCEPTION 'A verb cannot be its own parent';
+  END IF;
+
+  SELECT parent.language
+  INTO parent_language
+  FROM public.verb_tree_nodes AS parent
+  WHERE parent.id = NEW.parent_id;
+
+  IF parent_language IS NULL THEN
+    RAISE EXCEPTION 'The selected parent verb does not exist';
+  END IF;
+
+  IF parent_language <> NEW.language THEN
+    RAISE EXCEPTION 'A verb and its parent must use the same language';
+  END IF;
+
+  WITH RECURSIVE ancestors AS (
+    SELECT
+      parent.id,
+      parent.parent_id,
+      ARRAY[parent.id] AS path
+    FROM public.verb_tree_nodes AS parent
+    WHERE parent.id = NEW.parent_id
+
+    UNION ALL
+
+    SELECT
+      parent.id,
+      parent.parent_id,
+      ancestors.path || parent.id
+    FROM public.verb_tree_nodes AS parent
+    JOIN ancestors ON parent.id = ancestors.parent_id
+    WHERE NOT parent.id = ANY(ancestors.path)
+      AND CARDINALITY(ancestors.path) < 100
+  )
+  SELECT EXISTS (
+    SELECT 1
+    FROM ancestors
+    WHERE ancestors.id = NEW.id
+  )
+  INTO creates_cycle;
+
+  IF creates_cycle THEN
+    RAISE EXCEPTION 'This parent relationship would create a cycle';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS verb_tree_nodes_validate_parent ON public.verb_tree_nodes;
+
+CREATE TRIGGER verb_tree_nodes_validate_parent
+BEFORE INSERT OR UPDATE OF parent_id, language
+ON public.verb_tree_nodes
+FOR EACH ROW
+EXECUTE FUNCTION public.validate_verb_tree_parent();
+
+DROP TRIGGER IF EXISTS verb_tree_nodes_set_updated_at ON public.verb_tree_nodes;
+
+CREATE TRIGGER verb_tree_nodes_set_updated_at
+BEFORE UPDATE ON public.verb_tree_nodes
+FOR EACH ROW
+EXECUTE FUNCTION public.set_updated_at();
 
 CREATE OR REPLACE FUNCTION public.consume_ai_quota(
   p_action TEXT
@@ -661,6 +807,374 @@ AS $$
   LIMIT LEAST(GREATEST(p_limit, 1), 20);
 $$;
 
+CREATE OR REPLACE FUNCTION public.get_verb_family(
+  p_language TEXT,
+  p_lemma TEXT
+)
+RETURNS TABLE (
+  id UUID,
+  language TEXT,
+  lemma TEXT,
+  normalized_lemma TEXT,
+  parent_id UUID,
+  root_id UUID,
+  depth INTEGER
+)
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  WITH RECURSIVE
+  input AS (
+    SELECT LOWER(
+      REGEXP_REPLACE(TRIM(p_lemma), '[[:space:]]+', ' ', 'g')
+    ) AS normalized_lemma
+  ),
+  starting_node AS (
+    SELECT node.*
+    FROM public.verb_tree_nodes AS node
+    CROSS JOIN input
+    WHERE node.language = p_language
+      AND node.normalized_lemma = input.normalized_lemma
+      AND input.normalized_lemma <> ''
+  ),
+  ancestors AS (
+    SELECT
+      node.id,
+      node.language,
+      node.lemma,
+      node.normalized_lemma,
+      node.parent_id,
+      0 AS distance,
+      ARRAY[node.id] AS path
+    FROM starting_node AS node
+
+    UNION ALL
+
+    SELECT
+      parent.id,
+      parent.language,
+      parent.lemma,
+      parent.normalized_lemma,
+      parent.parent_id,
+      child.distance + 1,
+      child.path || parent.id
+    FROM public.verb_tree_nodes AS parent
+    JOIN ancestors AS child ON parent.id = child.parent_id
+    WHERE parent.language = p_language
+      AND NOT parent.id = ANY(child.path)
+      AND child.distance < 19
+  ),
+  root_node AS (
+    SELECT ancestor.id
+    FROM ancestors AS ancestor
+    WHERE ancestor.parent_id IS NULL
+    ORDER BY ancestor.distance DESC
+    LIMIT 1
+  ),
+  family AS (
+    SELECT
+      root.id,
+      root.language,
+      root.lemma,
+      root.normalized_lemma,
+      root.parent_id,
+      0 AS depth,
+      ARRAY[root.id] AS path
+    FROM public.verb_tree_nodes AS root
+    JOIN root_node ON root_node.id = root.id
+
+    UNION ALL
+
+    SELECT
+      child.id,
+      child.language,
+      child.lemma,
+      child.normalized_lemma,
+      child.parent_id,
+      parent.depth + 1,
+      parent.path || child.id
+    FROM public.verb_tree_nodes AS child
+    JOIN family AS parent ON child.parent_id = parent.id
+    WHERE child.language = p_language
+      AND NOT child.id = ANY(parent.path)
+      AND parent.depth < 19
+  )
+  SELECT
+    family.id,
+    family.language,
+    family.lemma,
+    family.normalized_lemma,
+    family.parent_id,
+    root_node.id AS root_id,
+    family.depth
+  FROM family
+  CROSS JOIN root_node
+  ORDER BY family.depth, family.normalized_lemma;
+$$;
+
+CREATE OR REPLACE FUNCTION public.save_generated_lexicon_entries(
+  p_language TEXT,
+  p_entries JSONB,
+  p_model TEXT,
+  p_schema_version INTEGER
+)
+RETURNS SETOF public.global_lexicon
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  entry JSONB;
+  family_lemma TEXT;
+  normalized_family_lemma TEXT;
+  expected_parent_id UUID;
+  actual_parent_id UUID;
+  current_node_id UUID;
+  final_node_id UUID;
+  saved_id UUID;
+  saved_ids UUID[] := '{}';
+BEGIN
+  IF p_language NOT IN ('de', 'en') THEN
+    RAISE EXCEPTION 'Unsupported learning language';
+  END IF;
+
+  IF p_schema_version < 1 THEN
+    RAISE EXCEPTION 'Schema version must be positive';
+  END IF;
+
+  IF JSONB_TYPEOF(p_entries) <> 'array'
+    OR JSONB_ARRAY_LENGTH(p_entries) = 0
+  THEN
+    RAISE EXCEPTION 'Generated entries must be a non-empty JSON array';
+  END IF;
+
+  FOR entry IN
+    SELECT value
+    FROM JSONB_ARRAY_ELEMENTS(p_entries)
+  LOOP
+    expected_parent_id := NULL;
+    final_node_id := NULL;
+
+    IF entry->'verb_family_path' IS NOT NULL
+      AND JSONB_TYPEOF(entry->'verb_family_path') = 'array'
+    THEN
+      FOR family_lemma IN
+        SELECT value
+        FROM JSONB_ARRAY_ELEMENTS_TEXT(entry->'verb_family_path')
+      LOOP
+        normalized_family_lemma := LOWER(
+          REGEXP_REPLACE(TRIM(family_lemma), '[[:space:]]+', ' ', 'g')
+        );
+
+        IF normalized_family_lemma = '' THEN
+          RAISE EXCEPTION 'A verb-family lemma cannot be blank';
+        END IF;
+
+        INSERT INTO public.verb_tree_nodes (
+          language,
+          lemma,
+          normalized_lemma,
+          parent_id
+        )
+        VALUES (
+          p_language,
+          TRIM(family_lemma),
+          normalized_family_lemma,
+          expected_parent_id
+        )
+        ON CONFLICT (language, normalized_lemma)
+        DO UPDATE SET
+          lemma = EXCLUDED.lemma,
+          parent_id = CASE
+            WHEN verb_tree_nodes.parent_id IS NULL
+              AND EXCLUDED.parent_id IS NOT NULL
+            THEN EXCLUDED.parent_id
+            ELSE verb_tree_nodes.parent_id
+          END,
+          updated_at = NOW()
+        RETURNING id, parent_id
+        INTO current_node_id, actual_parent_id;
+
+        IF actual_parent_id IS DISTINCT FROM expected_parent_id THEN
+          RAISE EXCEPTION
+            'Verb-family conflict for "%": stored and generated parents differ',
+            family_lemma;
+        END IF;
+
+        expected_parent_id := current_node_id;
+        final_node_id := current_node_id;
+      END LOOP;
+    END IF;
+
+    IF p_language IN ('de', 'en')
+      AND entry->>'type' = 'verb'
+      AND final_node_id IS NULL
+    THEN
+      RAISE EXCEPTION 'Verb entries require a verb-family path';
+    END IF;
+
+    IF entry->>'type' <> 'verb' AND final_node_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Only verbs can reference a verb-family path';
+    END IF;
+
+    INSERT INTO public.global_lexicon (
+      language,
+      sense_key,
+      word,
+      normalized_word,
+      meaning_ar,
+      type,
+      grammar_json,
+      commonness,
+      chunk,
+      example,
+      search_terms,
+      model,
+      schema_version,
+      verb_tree_node_id,
+      updated_at
+    )
+    VALUES (
+      p_language,
+      entry->>'sense_key',
+      entry->>'word',
+      entry->>'normalized_word',
+      entry->>'meaning_ar',
+      entry->>'type',
+      COALESCE(entry->'grammar_json', '{}'::JSONB),
+      entry->>'commonness',
+      entry->>'chunk',
+      entry->>'example',
+      ARRAY(
+        SELECT value
+        FROM JSONB_ARRAY_ELEMENTS_TEXT(
+          COALESCE(entry->'search_terms', '[]'::JSONB)
+        )
+      ),
+      p_model,
+      p_schema_version,
+      final_node_id,
+      NOW()
+    )
+    ON CONFLICT (language, sense_key)
+    DO UPDATE SET
+      word = EXCLUDED.word,
+      normalized_word = EXCLUDED.normalized_word,
+      meaning_ar = EXCLUDED.meaning_ar,
+      type = EXCLUDED.type,
+      grammar_json = EXCLUDED.grammar_json,
+      commonness = EXCLUDED.commonness,
+      chunk = EXCLUDED.chunk,
+      example = EXCLUDED.example,
+      search_terms = EXCLUDED.search_terms,
+      model = EXCLUDED.model,
+      schema_version = EXCLUDED.schema_version,
+      verb_tree_node_id = EXCLUDED.verb_tree_node_id,
+      updated_at = NOW()
+    RETURNING id INTO saved_id;
+
+    saved_ids := ARRAY_APPEND(saved_ids, saved_id);
+  END LOOP;
+
+  RETURN QUERY
+  SELECT lexicon.*
+  FROM public.global_lexicon AS lexicon
+  WHERE lexicon.id = ANY(saved_ids)
+  ORDER BY ARRAY_POSITION(saved_ids, lexicon.id);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_user_verb_forest(
+  p_language TEXT
+)
+RETURNS TABLE (
+  id UUID,
+  language TEXT,
+  lemma TEXT,
+  normalized_lemma TEXT,
+  parent_id UUID,
+  root_id UUID,
+  depth INTEGER
+)
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  WITH RECURSIVE
+  owned_nodes AS (
+    SELECT DISTINCT node.id
+    FROM public.vocabulary AS vocabulary
+    JOIN public.global_lexicon AS lexicon
+      ON lexicon.id = vocabulary.lexicon_id
+    JOIN public.verb_tree_nodes AS node
+      ON node.id = lexicon.verb_tree_node_id
+    WHERE vocabulary.user_id = (SELECT auth.uid())
+      AND vocabulary.language = p_language
+      AND node.language = p_language
+  ),
+  ancestors AS (
+    SELECT node.id, node.parent_id, ARRAY[node.id] AS path
+    FROM public.verb_tree_nodes AS node
+    JOIN owned_nodes ON owned_nodes.id = node.id
+
+    UNION ALL
+
+    SELECT parent.id, parent.parent_id, child.path || parent.id
+    FROM public.verb_tree_nodes AS parent
+    JOIN ancestors AS child ON parent.id = child.parent_id
+    WHERE parent.language = p_language
+      AND NOT parent.id = ANY(child.path)
+      AND CARDINALITY(child.path) < 20
+  ),
+  roots AS (
+    SELECT DISTINCT node.id
+    FROM public.verb_tree_nodes AS node
+    JOIN ancestors ON ancestors.id = node.id
+    WHERE node.parent_id IS NULL
+  ),
+  forest AS (
+    SELECT
+      root.id,
+      root.language,
+      root.lemma,
+      root.normalized_lemma,
+      root.parent_id,
+      root.id AS root_id,
+      0 AS depth,
+      ARRAY[root.id] AS path
+    FROM public.verb_tree_nodes AS root
+    JOIN roots ON roots.id = root.id
+
+    UNION ALL
+
+    SELECT
+      child.id,
+      child.language,
+      child.lemma,
+      child.normalized_lemma,
+      child.parent_id,
+      parent.root_id,
+      parent.depth + 1,
+      parent.path || child.id
+    FROM public.verb_tree_nodes AS child
+    JOIN forest AS parent ON child.parent_id = parent.id
+    WHERE child.language = p_language
+      AND NOT child.id = ANY(parent.path)
+      AND parent.depth < 19
+  )
+  SELECT
+    forest.id,
+    forest.language,
+    forest.lemma,
+    forest.normalized_lemma,
+    forest.parent_id,
+    forest.root_id,
+    forest.depth
+  FROM forest
+  ORDER BY forest.root_id, forest.depth, forest.normalized_lemma;
+$$;
+
 -- ============================================================================
 -- Row Level Security (RLS) & Policies
 -- ============================================================================
@@ -675,6 +1189,8 @@ ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_daily_usage ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.global_lexicon ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.verb_tree_nodes ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.activation_attempts ENABLE ROW LEVEL SECURITY;
 
@@ -713,6 +1229,8 @@ DROP POLICY IF EXISTS "preferences_update" ON public.user_preferences;
 
 DROP POLICY IF EXISTS "global_lexicon_select" ON public.global_lexicon;
 
+DROP POLICY IF EXISTS "verb_tree_nodes_select" ON public.verb_tree_nodes;
+
 DROP POLICY IF EXISTS "activation_attempts_select" ON public.activation_attempts;
 
 DROP POLICY IF EXISTS "activation_attempts_insert" ON public.activation_attempts;
@@ -727,6 +1245,7 @@ public.reviews,
 public.user_preferences,
 public.ai_daily_usage,
 public.global_lexicon,
+public.verb_tree_nodes,
 public.activation_attempts,
 public.activation_word_results
 FROM anon, authenticated;
@@ -749,6 +1268,8 @@ UPDATE ON public.user_preferences TO authenticated;
 REVOKE ALL ON public.ai_daily_usage FROM anon, authenticated;
 
 GRANT SELECT ON public.global_lexicon TO authenticated;
+
+GRANT SELECT ON public.verb_tree_nodes TO authenticated;
 
 GRANT SELECT, INSERT ON public.activation_attempts TO authenticated;
 
@@ -821,6 +1342,33 @@ FROM PUBLIC;
 
 GRANT
 EXECUTE ON FUNCTION public.search_global_lexicon (TEXT, TEXT, INTEGER) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.validate_verb_tree_parent () FROM PUBLIC;
+
+REVOKE ALL ON FUNCTION public.get_verb_family (TEXT, TEXT) FROM PUBLIC;
+
+GRANT
+EXECUTE ON FUNCTION public.get_verb_family (TEXT, TEXT) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.get_user_verb_forest (TEXT) FROM PUBLIC;
+
+GRANT
+EXECUTE ON FUNCTION public.get_user_verb_forest (TEXT) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.save_generated_lexicon_entries (
+    TEXT,
+    JSONB,
+    TEXT,
+    INTEGER
+) FROM PUBLIC, anon, authenticated;
+
+GRANT
+EXECUTE ON FUNCTION public.save_generated_lexicon_entries (
+    TEXT,
+    JSONB,
+    TEXT,
+    INTEGER
+) TO service_role;
 
 -- =========================================================
 -- Vocabulary Policies
@@ -930,6 +1478,9 @@ WITH
     );
 
 CREATE POLICY "global_lexicon_select" ON public.global_lexicon FOR
+SELECT TO authenticated USING (TRUE);
+
+CREATE POLICY "verb_tree_nodes_select" ON public.verb_tree_nodes FOR
 SELECT TO authenticated USING (TRUE);
 
 CREATE POLICY "activation_attempts_select" ON public.activation_attempts FOR

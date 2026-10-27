@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -207,6 +207,7 @@ export type Database = {
           state: string
           type: string
           updated_at: string
+          verb_tree_node_id: string | null
           word: string
         }
         Insert: {
@@ -231,6 +232,7 @@ export type Database = {
           state?: string
           type: string
           updated_at?: string
+          verb_tree_node_id?: string | null
           word: string
         }
         Update: {
@@ -255,9 +257,18 @@ export type Database = {
           state?: string
           type?: string
           updated_at?: string
+          verb_tree_node_id?: string | null
           word?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "global_lexicon_verb_tree_node_id_fkey"
+            columns: ["verb_tree_node_id"]
+            isOneToOne: false
+            referencedRelation: "verb_tree_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reviews: {
         Row: {
@@ -317,6 +328,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      verb_tree_nodes: {
+        Row: {
+          created_at: string
+          id: string
+          language: string
+          lemma: string
+          normalized_lemma: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          language: string
+          lemma: string
+          normalized_lemma: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          language?: string
+          lemma?: string
+          normalized_lemma?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verb_tree_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "verb_tree_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vocabulary: {
         Row: {
@@ -389,6 +438,30 @@ export type Database = {
     }
     Functions: {
       consume_ai_quota: { Args: { p_action: string }; Returns: boolean }
+      get_user_verb_forest: {
+        Args: { p_language: string }
+        Returns: {
+          depth: number
+          id: string
+          language: string
+          lemma: string
+          normalized_lemma: string
+          parent_id: string
+          root_id: string
+        }[]
+      }
+      get_verb_family: {
+        Args: { p_language: string; p_lemma: string }
+        Returns: {
+          depth: number
+          id: string
+          language: string
+          lemma: string
+          normalized_lemma: string
+          parent_id: string
+          root_id: string
+        }[]
+      }
       record_learning_result:
         | {
             Args: {
@@ -417,6 +490,45 @@ export type Database = {
       save_activation_history: {
         Args: { p_attempts: Json; p_word_results: Json }
         Returns: Json
+      }
+      save_generated_lexicon_entries: {
+        Args: {
+          p_entries: Json
+          p_language: string
+          p_model: string
+          p_schema_version: number
+        }
+        Returns: {
+          audio_config_version: number | null
+          audio_generated_at: string | null
+          audio_path: string | null
+          audio_source_text: string | null
+          chunk: string | null
+          commonness: string | null
+          created_at: string
+          example: string | null
+          grammar_json: Json
+          id: string
+          language: string
+          level_cerf: string | null
+          meaning_ar: string
+          model: string
+          normalized_word: string
+          schema_version: number
+          search_terms: string[]
+          sense_key: string
+          state: string
+          type: string
+          updated_at: string
+          verb_tree_node_id: string | null
+          word: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "global_lexicon"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       search_global_lexicon: {
         Args: { p_language: string; p_limit?: number; p_query: string }

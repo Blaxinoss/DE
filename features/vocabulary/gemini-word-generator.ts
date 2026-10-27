@@ -9,6 +9,7 @@ import {
   WordQuery,
   WordSuggestion,
   generatedWordsSchema,
+  parseGeneratedWords,
   wordQuerySchema,
 } from "./dictionary-schema";
 
@@ -16,6 +17,13 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 function buildPrompt(input: WordQuery): string {
   const language = languageDetails[input.language];
+  const verbFamilyRules =
+    input.language === "de"
+      ? `- For German separable and prefixed verbs, include only real present-day verbs as intermediate steps. Examples: "annehmen" -> ["nehmen", "annehmen"] and "wiederaufnehmen" -> ["nehmen", "aufnehmen", "wiederaufnehmen"].
+- Remove "sich" from every verbFamilyPath item; the path for "sich erinnern" ends in "erinnern".`
+      : `- Treat English prefixed verbs and phrasal verbs as verb families. Examples: "overreact" -> ["act", "react", "overreact"], "rewrite" -> ["write", "rewrite"], and "take over" -> ["take", "take over"].
+- For a phrasal or prepositional verb, use its lexical base verb as the parent. Keep the particle or preposition in the final canonical headword, never as its own node.
+- Add an intermediate phrasal verb only when it is itself a real canonical headword in the same structural path. For example, do not invent "put up" as an intermediate for "put up with" when that would represent a different construction.`;
 
   return `You build high-quality dictionary entries for an Arabic-speaking learner of ${language.name}.
 
@@ -48,6 +56,13 @@ Rules:
 - chunk must be a natural high-value collocation for this exact sense, or null.
 - example must be one natural complete ${language.name} sentence demonstrating this exact sense, or null.
 - searchTerms must include the canonical word and useful lookup variants. For reflexive German verbs, include both the reflexive headword and the bare infinitive when relevant.
+- For every ${language.name} verb, including an English phrasal verb, return verbFamilyPath. For every non-verb, return verbFamilyPath as null.
+- verbFamilyPath is ordered from the simplest useful modern family root to the current verb. Its final item must be the canonical dictionary headword. German paths omit "sich"; English phrasal verbs retain their required particles or prepositions.
+- Every adjacent pair must be a direct structural step useful to a present-day learner.
+${verbFamilyRules}
+- A shared spelling, historical origin, similar meaning, or synonymy is not enough to claim a family relationship. Do not connect unrelated verbs such as "gefallen" and "fallen" merely because their spelling overlaps.
+- If no clear and useful parent exists, or if you are uncertain, return only the current canonical verb, for example ["erinnern"] or ["decide"]. Never invent an intermediate verb.
+- Distinct senses or constructions of the same verb must return exactly the same verbFamilyPath.
 - Never return learning state, target, review timing, or user-specific data.
 
 Query:
@@ -69,6 +84,7 @@ function toSuggestion(candidate: GeneratedWord): WordSuggestion {
     example: candidate.example,
     searchTerms: candidate.searchTerms,
     score: null,
+    verbFamilyPath: candidate.verbFamilyPath,
   };
 }
 
@@ -87,7 +103,7 @@ async function generate(input: WordQuery): Promise<WordSuggestion[]> {
     throw new Error("Gemini returned an empty response");
   }
 
-  const output = generatedWordsSchema.parse(JSON.parse(response.text));
+  const output = parseGeneratedWords(JSON.parse(response.text), input.language);
   return output.suggestions.map(toSuggestion);
 }
 

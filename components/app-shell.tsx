@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LibraryBig,
   LogOut,
+  Network,
   Repeat2,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -23,6 +24,7 @@ import { useVocabulary } from "@/features/vocabulary/components/vocabulary-provi
 const nav = [
   { href: "/dashboard", label: "Today", icon: LayoutDashboard },
   { href: "/vocabulary", label: "Vocabulary", icon: BookOpen },
+  { href: "/word-tree", label: "Explore", icon: Network },
   { href: "/review", label: "Review", icon: Repeat2 },
   { href: "/activate", label: "Activate", icon: Activity },
   { href: "/history", label: "History", icon: History },
@@ -202,7 +204,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav
-          className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-6 rounded-2xl border border-[var(--line)] bg-[#101925]/95 p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.4)] backdrop-blur-xl md:hidden"
+          className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-7 rounded-2xl border border-[var(--line)] bg-[#101925]/95 p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.4)] backdrop-blur-xl md:hidden"
           aria-label="Mobile navigation"
         >
           {nav.map(({ href, label, icon: Icon }) => {
