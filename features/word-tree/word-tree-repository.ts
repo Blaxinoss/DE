@@ -130,12 +130,14 @@ export async function getUserVerbForest(
     familiesByRoot.set(node.rootId, family);
   }
 
-  return [...familiesByRoot.entries()].map(([rootId, familyNodes]) => ({
-    rootId,
-    requestedLemma:
-      familyNodes.find((node) => node.id === rootId)?.normalizedLemma ?? "",
-    nodes: familyNodes,
-  }));
+  return [...familiesByRoot.entries()]
+    .map(([rootId, familyNodes]) => ({
+      rootId,
+      requestedLemma:
+        familyNodes.find((node) => node.id === rootId)?.normalizedLemma ?? "",
+      nodes: familyNodes,
+    }))
+    .filter((family) => family.nodes.length > 1);
 }
 
 async function hydrateNodes(

@@ -11,7 +11,7 @@ The application currently supports two independent learning courses:
 
 The interface is in English, while meanings and AI feedback are written in
 Arabic. Switching course does not translate or move words: each language keeps
-its own vocabulary, reviews, progress, imports, and exports.
+its own vocabulary, reviews, and progress.
 
 ## Features
 
@@ -29,7 +29,6 @@ its own vocabulary, reviews, progress, imports, and exports.
 - Per-target-word meaning, grammar, naturalness, and collocation evaluation.
 - Persisted activation history with answers, corrections, scores, errors, and
   per-word performance.
-- Import and export as portable JSON.
 - Responsive dark UI with desktop and mobile navigation.
 - No `localStorage` persistence or local demo-data fallback.
 
@@ -49,8 +48,8 @@ its own vocabulary, reviews, progress, imports, and exports.
 
 1. Create an account or sign in.
 2. Choose the German or English course from the sidebar or mobile header.
-3. Type a word, choose a cached or AI-generated meaning, select the learning
-   target, or import a JSON file.
+3. Type a word, choose a cached or AI-generated meaning, and select the learning
+   target.
 4. Review due words using Arabic-to-target-language retrieval.
 5. When active-target words reach an eligible state, use them in an activation
    writing exercise.
@@ -392,7 +391,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `bun run build`                   | Create and validate a production build    |
 | `bun run start`                   | Serve the production build                |
 | `bun run db:backup`               | Back up the remote application database   |
-| `bun run db:restore:check -- ...` | Restore and verify a backup locally        |
+| `bun run db:restore:check -- ...` | Restore and verify a backup locally       |
 | `bunx supabase db push --dry-run` | Preview pending linked-project migrations |
 | `bunx supabase db push`           | Apply pending linked-project migrations   |
 
@@ -425,66 +424,6 @@ documented order. Never use the production project as the target. Storage object
 files and project settings such as Auth URLs and API keys must still be copied
 separately.
 
-## Import format
-
-Imports are applied to the language course currently selected in the UI. The
-JSON does not need a language property.
-
-```json
-{
-  "words": [
-    {
-      "word": "avoid",
-      "meaningAr": "يتجنب",
-      "type": "verb",
-      "target": "active",
-      "state": "new",
-      "grammar": {
-        "baseForm": "avoid",
-        "past": "avoided",
-        "pastParticiple": "avoided",
-        "gerund": "avoiding",
-        "pattern": "avoid + noun / gerund"
-      },
-      "commonness": "very common",
-      "chunk": "avoid making a mistake",
-      "example": "I try to avoid making the same mistake twice."
-    }
-  ]
-}
-```
-
-Supported word types:
-
-```text
-noun, verb, adjective, adverb, expression, other
-```
-
-Supported targets:
-
-```text
-passive, active
-```
-
-Supported states:
-
-```text
-new, learning, recall, active
-```
-
-The parser also accepts `meaning_ar` and `grammar_json`. Unknown or missing word
-types become `other`; unknown states become `new`; targets other than `passive`
-become `active`. Legacy states remain import-compatible: `recognition` and
-`passive` become `learning`, while `slow_recall` and `usable` become `recall`.
-
-## Export format
-
-Export downloads only the currently selected language course. Each word
-includes its learning metadata, latest review status, and next review time. The
-recent-failure count is derived from at most the five latest reviews; the raw
-review rows are not included. The top-level object also includes the course
-language and export timestamp.
-
 ## Language support
 
 Language behavior is centralized in
@@ -508,7 +447,7 @@ To add another target language:
    [`features/learning/language-config.ts`](features/learning/language-config.ts).
 3. Add the code to the database check constraints through a new migration.
 4. Update the language-switcher UI if more than two choices are available.
-5. Add import examples and test review/activation behavior for that language.
+5. Test review and activation behavior for that language.
 
 Most of the vocabulary model is already language-neutral. `grammar_json` is
 intentionally flexible, so German can store article/case data while English can
@@ -533,7 +472,6 @@ store forms, phrasal patterns, or usage notes without changing the schema.
 - Initial page load reads from Supabase.
 - Successful creates, updates, deletes, reviews, and language switches update
   the React context immediately.
-- Export uses the currently loaded Supabase-backed context.
 - A browser refresh discards memory state and fetches the latest rows again.
 
 Supabase/PostgREST infrastructure may use normal HTTP/database-level caching,

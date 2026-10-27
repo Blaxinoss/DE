@@ -182,12 +182,15 @@ CREATE TABLE IF NOT EXISTS public.activation_word_results (
 
 DROP INDEX IF EXISTS public.vocabulary_normalized_word_idx;
 
+DROP INDEX IF EXISTS public.vocabulary_user_language_custom_word_idx;
+
 CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_lexicon_idx ON public.vocabulary (user_id, lexicon_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_language_custom_word_idx ON public.vocabulary (
+CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_user_language_custom_sense_idx ON public.vocabulary (
     user_id,
     language,
-    LOWER(TRIM(word))
+    LOWER(TRIM(word)),
+    LOWER(TRIM(meaning_ar))
 )
 WHERE
     lexicon_id IS NULL;

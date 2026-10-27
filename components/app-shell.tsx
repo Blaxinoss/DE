@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
-  ArrowUpFromLine,
   BookOpen,
   CircleHelp,
   History,
@@ -28,7 +27,6 @@ const nav = [
   { href: "/review", label: "Review", icon: Repeat2 },
   { href: "/activate", label: "Activate", icon: Activity },
   { href: "/history", label: "History", icon: History },
-  { href: "/transfer", label: "Transfer", icon: ArrowUpFromLine },
 ];
 
 function Brand() {
@@ -204,7 +202,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav
-          className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-7 rounded-2xl border border-[var(--line)] bg-[#101925]/95 p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.4)] backdrop-blur-xl md:hidden"
+          className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-6 rounded-2xl border border-[var(--line)] bg-[#101925]/95 p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.4)] backdrop-blur-xl md:hidden"
           aria-label="Mobile navigation"
         >
           {nav.map(({ href, label, icon: Icon }) => {

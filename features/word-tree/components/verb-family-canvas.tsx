@@ -12,12 +12,13 @@ import {
   ReactFlow,
   useEdgesState,
   useNodesState,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { GitBranch, LockKeyhole, UnlockKeyhole } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { GitBranch, LockKeyhole, Search, UnlockKeyhole, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { VerbFamily, VerbFamilyNode } from "@/features/word-tree/types";
 
 export type FamilyCanvasView = "structure" | "overview";
@@ -63,6 +64,7 @@ export function VerbForestCanvas({
     <InteractiveCanvas
       model={model}
       onSelect={onSelect}
+      searchable
     />
   );
 }
@@ -71,10 +73,12 @@ function InteractiveCanvas({
   model,
   onSelect,
   compact = false,
+  searchable = false,
 }: {
   model: { nodes: VerbFlowNode[]; edges: Edge[] };
   onSelect(nodeId: string): void;
   compact?: boolean;
+  searchable?: boolean;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<VerbFlowNode>(model.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(model.edges);
@@ -131,6 +135,12 @@ function InteractiveCanvas({
             />
           </div>
         </Panel>
+        {searchable && (
+          <CanvasSearch
+            nodes={nodes}
+            onSelect={onSelect}
+          />
+        )}
         <MiniMap<VerbFlowNode>
           pannable
           zoomable
@@ -146,6 +156,128 @@ function InteractiveCanvas({
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>
+  );
+}
+
+function CanvasSearch({
+  nodes,
+  onSelect,
+}: {
+  nodes: VerbFlowNode[];
+  onSelect(nodeId: string): void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const { fitView, getNode, setNodes } = useReactFlow<VerbFlowNode, Edge>();
+  const results = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return [];
+
+    return nodes
+      .filter((node) => node.data.verb.normalizedLemma.includes(normalizedQuery))
+      .sort((left, right) => {
+        const leftExact = left.data.verb.normalizedLemma === normalizedQuery;
+        const rightExact = right.data.verb.normalizedLemma === normalizedQuery;
+        return Number(rightExact) - Number(leftExact);
+      })
+      .slice(0, 8);
+  }, [nodes, query]);
+
+  const focusNode = (nodeId: string) => {
+    const node = getNode(nodeId);
+    if (!node) return;
+
+    setNodes((current) =>
+      current.map((item) => ({ ...item, selected: item.id === nodeId })),
+    );
+    onSelect(nodeId);
+    setQuery(node.data.verb.lemma);
+    setOpen(false);
+    void fitView({
+      nodes: [node],
+      duration: 650,
+      padding: 1.4,
+      minZoom: 1.05,
+      maxZoom: 1.35,
+    });
+  };
+
+  return (
+    <Panel position="top-right">
+      <div className="relative w-[min(19rem,calc(100vw-3rem))]">
+        <div className="flex items-center gap-2 rounded-xl border border-[#34465d] bg-[#0b131f]/95 px-3 shadow-xl backdrop-blur">
+          <Search
+            className="shrink-0 text-[#91a8f7]"
+            size={17}
+          />
+          <input
+            type="search"
+            className="nodrag nowheel min-w-0 flex-1 bg-transparent py-3 text-sm font-bold text-[var(--ink)] outline-none placeholder:text-[#718096]"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && results[0]) {
+                event.preventDefault();
+                focusNode(results[0].id);
+              }
+              if (event.key === "Escape") setOpen(false);
+            }}
+            placeholder="Find a verb…"
+            aria-label="Find a verb in the forest"
+          />
+          {query && (
+            <button
+              type="button"
+              className="nodrag grid size-7 shrink-0 place-items-center rounded-lg text-[#91a0b5] hover:bg-[#1b2a3d] hover:text-white"
+              onClick={() => {
+                setQuery("");
+                setOpen(false);
+              }}
+              aria-label="Clear verb search"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        {open && query.trim() && (
+          <div className="nodrag absolute right-0 top-[calc(100%+.45rem)] max-h-72 w-full overflow-y-auto rounded-xl border border-[#34465d] bg-[#0b131f] p-1.5 shadow-2xl">
+            {results.length ? (
+              results.map((node) => (
+                <button
+                  key={node.id}
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-[#18263a]"
+                  onClick={() => focusNode(node.id)}
+                >
+                  <span
+                    className="truncate text-sm font-black text-[var(--ink)]"
+                    lang={node.data.verb.language}
+                  >
+                    {node.data.verb.lemma}
+                  </span>
+                  <span
+                    className={`text-[10px] font-black uppercase tracking-wider ${
+                      node.data.verb.unlocked ? "text-[#b9df72]" : "text-[#7f8da1]"
+                    }`}
+                  >
+                    {node.data.verb.unlocked ? "Unlocked" : "Locked"}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <p className="px-3 py-4 text-center text-sm font-semibold text-[#8290a3]">
+                No verb found in this forest.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Panel>
   );
 }
 

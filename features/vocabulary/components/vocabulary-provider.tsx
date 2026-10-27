@@ -11,7 +11,6 @@ import {
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { nextState, scheduleNextReview } from "@/features/learning/rules";
-import { normalizeWord } from "@/features/vocabulary/import-export";
 import { vocabularyRepository } from "@/features/vocabulary/vocabulary-repository";
 import { isSupabaseConfigured } from "@/lib/supabase/browser";
 import {
@@ -62,7 +61,6 @@ type ContextValue = {
     updatedWords: VocabularyLearningUpdate[],
     savedReviews: Review[],
   ): void;
-  importWords(drafts: VocabularyDraft[]): Promise<{ created: number; updated: number }>;
 };
 const VocabularyContext = createContext<ContextValue | null>(null);
 
@@ -243,27 +241,6 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
     );
     setReviews((all) => [...savedReviews, ...all]);
   };
-  const importWords = async (drafts: VocabularyDraft[]) => {
-    let created = 0,
-      updated = 0;
-    const known = new Map(
-      words.map((word) => [normalizeWord(word.word, language), word]),
-    );
-    for (const draft of drafts) {
-      const key = normalizeWord(draft.word, language);
-      const existing = known.get(key);
-      if (existing) {
-        const merged = await updateWord(existing.id, { ...existing, ...draft });
-        known.set(key, merged);
-        updated += 1;
-      } else {
-        const added = await createWord(draft);
-        known.set(key, added);
-        created += 1;
-      }
-    }
-    return { created, updated };
-  };
   const value = useMemo(
     () => ({
       language,
@@ -288,7 +265,6 @@ export function VocabularyProvider({ children }: { children: React.ReactNode }) 
       recordResult,
       recordResults,
       applyLearningResults,
-      importWords,
     }),
     [
       language,
